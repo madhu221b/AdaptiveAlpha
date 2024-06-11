@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu
+#SBATCH --gpus=2
+#SBATCH --job-name=BatchNw
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --time=04:00:00
+#SBATCH --output=slurm_output_%A.out
+
+module purge
+module load 2022
+module load Anaconda3/2022.05
+
+cd $HOME/AdaptiveAlpha
+source activate lr_env_v4
+srun  python3 batch_network.py --model DPAH --N 15 --fm 0.3 --d 0.03 --ploM 2.5 --plom 2.5  --hMM 0.2 --hmm 0.8 
