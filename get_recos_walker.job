@@ -1,0 +1,37 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu_mig
+#SBATCH --gpus=2
+#SBATCH --job-name=RecosWalker
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --time=08:00:00
+#SBATCH --output=slurm_output_%A.out
+
+module purge
+module load 2022
+module load Anaconda3/2022.05
+
+cd $HOME/AdaptiveAlpha
+source activate lr_env_v4
+
+# srun  python generate_recos_model_based.py --model  fw --hMM 0.2 --hmm 0.8 --fm 0.05 --seed 42
+# srun  python generate_recos_model_based.py --model  fw --hMM 0.2 --hmm 0.8 --fm 0.05 --seed 420
+# srun  python generate_recos_model_based.py --model  fw --hMM 0.2 --hmm 0.2 --fm 0.3 --seed 42
+
+# srun python generate_recos_model_based.py --model indegree --beta 2.0 --hMM 0.2 --hmm 0.2 --fm 0.3 --seed 42
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.2 --hmm 0.2 --fm 0.3 --seed 420
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.2 --hmm 0.2 --fm 0.3 --seed 4200
+
+srun python generate_recos_walker.py --model indegreevarybetav2  --beta 2.0 --start 0.0 --end 1.1 --fm 0.2
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.2 --hmm 0.8 --fm 0.3 --seed 42
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.2 --hmm 0.8 --fm 0.3 --seed 420
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.2 --hmm 0.8 --fm 0.3 --seed 4200
+
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.8 --hmm 0.2 --fm 0.3 --seed 42
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.8 --hmm 0.2 --fm 0.3 --seed 420
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.8 --hmm 0.2 --fm 0.3 --seed 4200
+
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.8 --hmm 0.8 --fm 0.3 --seed 42
+# srun python generate_recos_model_based.py --model indegree --beta 2.0 --hMM 0.8 --hmm 0.8 --fm 0.3 --seed 420
+# srun python generate_recos_model_based.py --model indegree --beta 2.0  --hMM 0.8 --hmm 0.8 --fm 0.3 --seed 4200

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#SBATCH --partition=gpu
+#SBATCH --gpus=1
+#SBATCH --job-name=CentralityReco
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --time=00:40:00
+#SBATCH --output=slurm_output_%A.out
+
+module purge
+module load 2022
+module load Anaconda3/2022.05
+
+cd $HOME/Homophilic_Directed_ScaleFree_Networks
+source activate lr_env_v4
+
+srun  python3 generate_heatmap_centrality.py --model  nlindlocalind_alpha_0.5_beta_2.0_fm_0.3 --reco after --centrality betweenness
