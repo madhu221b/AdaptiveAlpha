@@ -24,12 +24,12 @@ EPOCHS = 30
 
 
 # fm = 0.3
-# N = 1000
-N = 60
+N = 1000
 YM, Ym = 2.5, 2.5
 d = 0.03
 
-   
+main_path = "../AdaptiveAlpha/"
+
 def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         '''Defines each timestep of the simulation:
             0. each node makes experiments
@@ -67,17 +67,17 @@ def run(hMM, hmm,model,fm,extra_params):
         # Setting seed
         np.random.seed(MAIN_SEED)
         random.seed(MAIN_SEED)
-        folder_path = "../Homophilic_Directed_ScaleFree_Networks/{}_fm_{}".format(model,fm)
+        folder_path = main_path+"/{}_fm_{}".format(model,fm)
         new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
         new_path = os.path.join(folder_path, new_filename) 
-        if os.path.exists(new_path) and False: # disabling this condition
+        if os.path.exists(new_path): # disabling this condition
             print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
             return 
         print("hMM: {}, hmm: {}".format(hMM, hmm))
 
         # read the base graph from DPAH folder
         old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
-        DPAH_path = "../Homophilic_Directed_ScaleFree_Networks/DPAH_fm_{}".format(fm)
+        DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
         g = nx.read_gpickle(os.path.join(DPAH_path,old_filename))
 
         node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
@@ -104,10 +104,11 @@ def run(hMM, hmm,model,fm,extra_params):
 
 
 def is_file_exists(hMM, hmm, model,fm,t):
-    folder_path = "../Homophilic_Directed_ScaleFree_Networks/{}_fm_{}".format(model,fm)
+    folder_path = "../Adapti/{}_fm_{}".format(model,fm)
     filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm)
     fn = os.path.join(folder_path,'{}_t_{}.gpickle'.format(filename,t))
     if os.path.exists(fn):
+        print("File exists: ", fn)
         return True, nx.read_gpickle(fn)
     else:
         return False, None
@@ -123,7 +124,7 @@ def get_filename(model,N,fm,d,YM,Ym,hMM,hmm):
                                              '-hmm{}'.format(hmm))
 
 def save_metadata(g, hMM, hmm, model,fm,t=0):
-    folder_path = "../Homophilic_Directed_ScaleFree_Networks/{}_fm_{}".format(model, fm)
+    folder_path = main_path+"/{}_fm_{}".format(model, fm)
     create_subfolders(folder_path)
     filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm)
     
@@ -150,25 +151,19 @@ if __name__ == "__main__":
     parser.add_argument("--fm", help="fraction of minorities", type=float, default=0.3)
     parser.add_argument("--beta", help="Beta paramater", type=float, default=2.0)
     parser.add_argument("--alpha", help="Alpha paramater (Levy)", type=float, default=1.0)
-
+    parser.add_argument("--p", help="Return parameter", type=float, default=1.0)
+    parser.add_argument("--q", help="In-out parameter", type=float, default=1.0)
     parser.add_argument("--start", help="Start idx", type=float, default=0.1)
     parser.add_argument("--end", help="End idx", type=float, default=0.5)
     args = parser.parse_args()
     
     start_time = time.time()
     extra_params = dict()
-    if args.model == "commonngh":
-        model = args.model
-    elif args.model in ["levy", "highlowindegree"]:
-       model =  "{}_alpha_{}".format(args.model,args.alpha)
-       extra_params = {"alpha":args.alpha}
-    elif args.model in ["levy", "highlowindegree"]:
-         extra_params = {"alpha":args.alpha}
-    elif args.model in  ["nonlocalindegree","nonlocaltrialindegree","nonlocalindegreelocalrandom","nlindlocalind"]:
+    if args.model in  ["nlindlocalind"]:
         model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
         extra_params = {"alpha":args.alpha,"beta":args.beta}
-    elif args.model == "fairindegreev2":
-        model = args.model
+    elif args.model in ["fw","n2v"]:
+        model = args.model + "_p_{}_q_{}".format(args.p,args.q)
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
