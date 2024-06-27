@@ -12,7 +12,7 @@ try:
 except Exception as error:
     from walker import Walker
 
-class InDegreeVaryBetaWalkerV2(Walker):
+class AdaptiveAlpha(Walker):
     def __init__(self,graph,beta=0,workers=1,dimensions=64,walk_len=10,num_walks=200):
         print(" [V2] Adaptive Alpha In Degree Walker with constant beta: ", beta)
         super().__init__(graph, workers=workers,dimensions=dimensions,walk_len=walk_len,num_walks=num_walks)
