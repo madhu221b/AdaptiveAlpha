@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from fairwalk.fairwalk  import FairWalk
 from node2vec import Node2Vec
-from walkers.indegreevarybetawalkerv2 import InDegreeVaryBetaWalkerV2
+from walkers.adaptivealpha import AdaptiveAlpha
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
 
 # Hyperparameter for node2vec/fairwalk
@@ -18,7 +18,7 @@ WALK_LEN = 10
 NUM_WALKS = 200
 
 walker_dict = {
-  "indegreevarybetav2" : InDegreeVaryBetaWalkerV2,
+  "adaptivealpha" : AdaptiveAlpha,
   "nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
 }
 
