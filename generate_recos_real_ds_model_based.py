@@ -14,13 +14,14 @@ from org.gesis.lib.graph import get_node_metadata_as_dataframe
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.graph import get_circle_of_trust_per_node
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, get_top_recos, read_graph
-from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2, plot_degree_dist, get_avg_inout_degree
+from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
 from load_dataset import load_dataset
-EPOCHS = 30
 
+EPOCHS = 30
+main_path = "../AdaptiveAlpha/"
    
 def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         '''Defines each timestep of the simulation:
@@ -66,7 +67,7 @@ def run(name,model,main_seed,extra_params):
     # Setting seed
     np.random.seed(main_seed)
     random.seed(main_seed)
-    folder_path = "../Homophilic_Directed_ScaleFree_Networks/model_{}_name_{}/seed_{}".format(model,name,main_seed)
+    folder_path = main_path+"/model_{}_name_{}/seed_{}".format(model,name,main_seed)
     new_filename = get_filename(name,model) +".gpickle"
     new_path = os.path.join(folder_path, new_filename) 
     if os.path.exists(new_path): # disabling this condition
@@ -78,13 +79,6 @@ def run(name,model,main_seed,extra_params):
 
     # Sample testing edges & create training instance g object
     print("Total edges in the graph: ", g.number_of_edges())
-    ind, outd = get_avg_inout_degree(g)
-    try:
-        asp = nx.average_shortest_path_length(g)
-    except Exception as e:
-        print(e)
-        asp = 0
-
     g_train, test_edges, true_labels = get_train_test_graph(g.copy(), main_seed)
 
     g = g_train 
@@ -115,7 +109,7 @@ def run(name,model,main_seed,extra_params):
 
 
 def is_file_exists(name, model, seed,t):
-    folder_path = "../Homophilic_Directed_ScaleFree_Networks/model_{}_name_{}/seed_{}".format(model,name,seed)
+    folder_path = main_path+"/model_{}_name_{}/seed_{}".format(model,name,seed)
     filename = get_filename(name,model)
     fn = os.path.join(folder_path,'_{}_t_{}.gpickle'.format(filename,t))
     print("checking for existence: ", fn)
@@ -129,7 +123,7 @@ def get_filename(name, model):
     return "{}-name_{}".format(model,name)
 
 def save_metadata(g, name, model,seed,t=0):
-    folder_path = "../Homophilic_Directed_ScaleFree_Networks/model_{}_name_{}/seed_{}".format(model,name,seed)
+    folder_path = main_path+"/model_{}_name_{}/seed_{}".format(model,name,seed)
     create_subfolders(folder_path)
     filename = get_filename(name,model)
     
@@ -182,21 +176,12 @@ if __name__ == "__main__":
     
     start_time = time.time()
     extra_params = dict()
-    if args.model == "commonngh":
-        model = args.model
-    elif args.model in ["levy", "highlowindegree"]:
-       model =  "{}_alpha_{}".format(args.model,args.alpha)
-       extra_params = {"alpha":args.alpha}
-    elif args.model in ["levy", "highlowindegree"]:
-         extra_params = {"alpha":args.alpha}
-    elif args.model in ["fw","n2v"]:
+    if args.model in ["fw","n2v"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
-    elif args.model in  ["nonlocalindegree","nonlocaltrialindegree","nonlocalindegreelocalrandom","nllindegreelocalrandom","nlindlocalind"]:
+    elif args.model in  ["nlindlocalind"]:
         model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
         extra_params = {"alpha":args.alpha,"beta":args.beta}
-    elif args.model == "fairindegreev2":
-        model = args.model
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}

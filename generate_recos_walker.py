@@ -12,7 +12,7 @@ from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.graph import get_node_metadata_as_dataframe
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.graph import get_circle_of_trust_per_node
-from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, get_top_recos
+from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker,recommender_model, get_top_recos
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -44,7 +44,14 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         set_seed(seed)
 
         print("Generating Node Embeddings")
-        _, embeds = recommender_model_walker(g,t,path,model=model,extra_params=extra_params)
+        if "fw" in model:
+            p, q = extra_params["p"], extra_params["q"]
+            _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
+        elif "n2v" in model:
+            p, q = extra_params["p"], extra_params["q"]
+            _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
+        else:
+            _, embeds = recommender_model_walker(g,t,path,model=model,extra_params=extra_params)
         print("Getting Link Recommendations from {} Model".format(model))
         u = g.nodes()
         recos = get_top_recos(g,embeds, u) 
@@ -63,44 +70,44 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
 
 
 def run(hMM, hmm,model,fm,extra_params):
-    try:  
+    # try:  
         # Setting seed
-        np.random.seed(MAIN_SEED)
-        random.seed(MAIN_SEED)
-        folder_path = main_path+"/{}_fm_{}".format(model,fm)
-        new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
-        new_path = os.path.join(folder_path, new_filename) 
-        if os.path.exists(new_path): # disabling this condition
-            print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
-            return 
-        print("hMM: {}, hmm: {}".format(hMM, hmm))
+    np.random.seed(MAIN_SEED)
+    random.seed(MAIN_SEED)
+    folder_path = main_path+"/{}_fm_{}".format(model,fm)
+    new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
+    new_path = os.path.join(folder_path, new_filename) 
+    if os.path.exists(new_path): # disabling this condition
+        print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
+        return 
+    print("hMM: {}, hmm: {}".format(hMM, hmm))
 
-        # read the base graph from DPAH folder
-        old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
-        DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
-        g = nx.read_gpickle(os.path.join(DPAH_path,old_filename))
+    # read the base graph from DPAH folder
+    old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
+    DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
+    g = nx.read_gpickle(os.path.join(DPAH_path,old_filename))
 
-        node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
-        nx.set_node_attributes(g, node2group, 'group')
+    node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
+    nx.set_node_attributes(g, node2group, 'group')
 
-        iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
-        time = 0
-        for time in iterable:
-            is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-            if not is_file:
-                print("File does not exist for time {}, creating now".format(time))
-                seed = MAIN_SEED+time+1 
-                g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
-                g = g_updated
-                save_metadata(g, hMM, hmm, model,fm,t=time)
-            else:
-                print("File exists for time {}, loading it... ".format(time))
-                g = g_obj
+    iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
+    time = 0
+    for time in iterable:
+        is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
+        if not is_file:
+            print("File does not exist for time {}, creating now".format(time))
+            seed = MAIN_SEED+time+1 
+            g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g = g_updated
+            save_metadata(g, hMM, hmm, model,fm,t=time)
+        else:
+            print("File exists for time {}, loading it... ".format(time))
+            g = g_obj
 
                 # if time == EPOCHS-1:
             
-    except Exception as e:
-         print("Error in run : ", e)
+    # except Exception as e:
+        #  print("Error in run : ", e)
 
 
 def is_file_exists(hMM, hmm, model,fm,t):
@@ -164,6 +171,7 @@ if __name__ == "__main__":
         extra_params = {"alpha":args.alpha,"beta":args.beta}
     elif args.model in ["fw","n2v"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
+        extra_params = {"p":args.p,"q":args.q}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
