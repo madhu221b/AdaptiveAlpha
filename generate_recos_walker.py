@@ -5,13 +5,10 @@ from tqdm import tqdm
 import random
 import time
 import argparse
-from fast_pagerank import pagerank_power
-
+import pickle
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
-from org.gesis.lib.graph import get_node_metadata_as_dataframe
 from org.gesis.lib.io import save_csv
-from org.gesis.lib.graph import get_circle_of_trust_per_node
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker,recommender_model, get_top_recos
 from joblib import delayed
 from joblib import Parallel
@@ -85,7 +82,9 @@ def run(hMM, hmm,model,fm,extra_params):
     # read the base graph from DPAH folder
     old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
     DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
-    g = nx.read_gpickle(os.path.join(DPAH_path,old_filename))
+    # g = nx.read_gpickle(os.path.join(DPAH_path,old_filename))
+    with open(os.path.join(DPAH_path,old_filename), 'rb') as f:
+              g = pickle.load(f)
 
     node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
     nx.set_node_attributes(g, node2group, 'group')
@@ -138,17 +137,6 @@ def save_metadata(g, hMM, hmm, model,fm,t=0):
     
     fn = os.path.join(folder_path,'{}_t_{}.gpickle'.format(filename,t))
     io.save_gpickle(g, fn)
-
-    ## [Personal] Specifying jobs
-    njobs = 24
-    if t == EPOCHS - 1:
-        df = get_node_metadata_as_dataframe(g, njobs=njobs)
-        csv_fn = os.path.join(folder_path,'{}_t_{}.csv'.format(filename,t))
-        io.save_csv(df, csv_fn)
-    
-    print("Saving graph and csv file at, ", fn.replace(".gpickle",""))
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

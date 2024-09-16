@@ -37,7 +37,9 @@ def load_gpickle(fn):
 def save_gpickle(G, fn):
     try:
         create_subfolders(fn)
-        nx.write_gpickle(G, fn)
+        # nx.write_gpickle(G, fn)
+        with open(fn, 'wb') as f:
+               pickle.dump(G, f, pickle.HIGHEST_PROTOCOL)
         utils.printf('{} saved!'.format(fn))
     except Exception as ex:
         utils.printf(ex)
