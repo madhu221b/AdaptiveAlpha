@@ -11,6 +11,7 @@ from fairwalk.fairwalk  import FairWalk
 from node2vec import Node2Vec
 from walkers.adaptivealpha import AdaptiveAlpha
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
+from walkers.indegreewalker import InDegreeWalker
 
 # Hyperparameter for node2vec/fairwalk
 DIM = 64
@@ -20,6 +21,7 @@ NUM_WALKS = 200
 walker_dict = {
   "adaptivealpha" : AdaptiveAlpha,
   "nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
+  "indegree": InDegreeWalker
 }
 
 def set_seed(seed):
