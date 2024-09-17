@@ -5,11 +5,11 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem-per-cpu=2G
-#SBATCH --time=00:15:00
+#SBATCH --time=01:00:00
 #SBATCH --job-name=RecosWalker
 #SBATCH --output=slurm_output_%A.out
 
 
-CMD="/home/mpawar/anaconda3/envs/lr_env/bin/python generate_recos_walker.py --model fw --hmm 0.5 --hMM 0.5"
+CMD="/home/mpawar/anaconda3/envs/lr_env/bin/python generate_recos_walker.py --model cw --hmm 0.2 --hMM 0.8"
 
 $CMD
