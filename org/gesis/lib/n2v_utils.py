@@ -6,8 +6,9 @@ import pickle as pkl
 import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
 
-
+from org.gesis.lib.cw_utils import get_upweighted_weights
 from fairwalk.fairwalk  import FairWalk
+from deepwalk.deepwalk  import DeepWalker
 from node2vec import Node2Vec
 from walkers.adaptivealpha import AdaptiveAlpha
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
@@ -78,6 +79,22 @@ def recommender_model(G,t=0,path="",model="n2v",p=1,q=1,num_cores=8, is_walk_viz
         emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
     return model, emb_df
 
+def recommender_model_cw(G, t=0, path="", p=1, alpha=0.5, num_cores=8):
+
+    print("[CrossWalk] Using p value: {}, Using alpha value : {}".format(p,alpha))
+    print("#1 -> Generate Random Walks")
+    deepwalk = DeepWalker(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores)    
+    walks = deepwalk.walks
+    print("#2 -> Upweight the edges")
+    weight_dict = get_upweighted_weights(G, walks, p, alpha, d=WALK_LEN, r=NUM_WALKS)
+    print("#3 -> Update with weight attrs into G")
+    nx.set_edge_attributes(G, weight_dict)
+    print("#4 -> Generate node embeddings")
+    cw_model = DeepWalker(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores) 
+    
+    model = cw_model.fit() 
+    emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
+    return model, emb_df
 
 def get_top_recos(g, embeddings, u, N=1):
     all_nodes = g.nodes()
@@ -173,7 +190,8 @@ def get_avg_group_centrality(g,centrality_dict,group=1):
     return avg_val
 
 def read_graph(file_name):
-    g = nx.read_gpickle(file_name)
+    with open(os.path.join(file_name), 'rb') as f:
+              g = pkl.load(f)
     try:
         node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
         nx.set_node_attributes(g, node2group, 'group')

@@ -9,7 +9,7 @@ import pickle
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
-from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker,recommender_model, get_top_recos
+from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker,recommender_model, get_top_recos, recommender_model_cw, read_graph
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -47,6 +47,9 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         elif "n2v" in model:
             p, q = extra_params["p"], extra_params["q"]
             _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
+        elif "cw" in model:
+            p_cw, alpha_cw = extra_params["p_cw"], extra_params["alpha_cw"]
+            _, embeds = recommender_model_cw(g, t, path, p=p_cw, alpha=alpha_cw)
         else:
             _, embeds = recommender_model_walker(g,t,path,model=model,extra_params=extra_params)
         print("Getting Link Recommendations from {} Model".format(model))
@@ -82,9 +85,7 @@ def run(hMM, hmm,model,fm,extra_params):
     # read the base graph from DPAH folder
     old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
     DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
-    # g = nx.read_gpickle(os.path.join(DPAH_path,old_filename))
-    with open(os.path.join(DPAH_path,old_filename), 'rb') as f:
-              g = pickle.load(f)
+    g = read_graph(os.path.join(DPAH_path,old_filename))
 
     node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
     nx.set_node_attributes(g, node2group, 'group')
@@ -102,20 +103,17 @@ def run(hMM, hmm,model,fm,extra_params):
         else:
             print("File exists for time {}, loading it... ".format(time))
             g = g_obj
-
-                # if time == EPOCHS-1:
             
-    # except Exception as e:
-        #  print("Error in run : ", e)
+
 
 
 def is_file_exists(hMM, hmm, model,fm,t):
-    folder_path = "../Adapti/{}_fm_{}".format(model,fm)
+    folder_path = "../AdaptiveAlpha/{}_fm_{}".format(model,fm)
     filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm)
     fn = os.path.join(folder_path,'{}_t_{}.gpickle'.format(filename,t))
     if os.path.exists(fn):
         print("File exists: ", fn)
-        return True, nx.read_gpickle(fn)
+        return True, read_graph(fn)
     else:
         return False, None
     
@@ -150,6 +148,10 @@ if __name__ == "__main__":
     parser.add_argument("--q", help="In-out parameter", type=float, default=1.0)
     parser.add_argument("--start", help="Start idx", type=float, default=0.1)
     parser.add_argument("--end", help="End idx", type=float, default=0.5)
+
+    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=2)
+    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.5)
+
     args = parser.parse_args()
     
     start_time = time.time()
@@ -160,6 +162,9 @@ if __name__ == "__main__":
     elif args.model in ["fw","n2v"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
+    elif args.model in ["cw"]:
+        model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
+        extra_params = {"p_cw":args.p_cw,"alpha_cw":args.alpha_cw}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
