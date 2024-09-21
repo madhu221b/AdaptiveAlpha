@@ -7,7 +7,12 @@ import argparse
 import networkx as nx
 
 import matplotlib.pyplot as plt
-plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = False
+
+from org.gesis.lib.n2v_utils import read_graph
+
+main_path = "../AdaptiveAlpha/"
+
 # import matplotlib as mpl
 # fm = 0.3
 N = 1000
@@ -37,7 +42,7 @@ def get_diff_grid(files,model,centrality):
         hMM, hmm = hMM.replace(".gpickle","").replace("_t_29",""), hmm.replace(".gpickle","").replace("_t_29","")
         hMM_idx, hmm_idx = int(float(hMM)*10), int(float(hmm)*10)
 
-        g = nx.read_gpickle(file_name)
+        g = read_graph(file_name)
         dict_folder = "./centrality/{}/{}".format(centrality,model)
         if not os.path.exists(dict_folder): os.makedirs(dict_folder)
         dict_file_name = dict_folder+"/_hMM{}_hmm{}.pkl".format(hMM,hmm)
@@ -80,7 +85,7 @@ def get_grid(files,model,centrality):
       
         # print("hMM: {}, hmm: {}".format(hMM, hmm))
      
-        g = nx.read_gpickle(file_name)
+        g = read_graph(file_name)
         dict_folder = "./centrality/{}/{}".format(centrality,model)
         if not os.path.exists(dict_folder): os.makedirs(dict_folder)
         dict_file_name = dict_folder+"/_hMM{}_hmm{}.pkl".format(hMM,hmm)
@@ -175,7 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("--centrality", help="closeness/betweenness", type=str, default='betweenness')
     parser.add_argument('--diff', action='store_true')
     args = parser.parse_args()
-    path = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/{}".format(args.model)
+    path = main_path+"{}".format(args.model)
     generate_heatmap(path, args.model, args.reco, args.centrality,args.diff) # usual 
     
 #     model1 = "fw_p_1.0_q_1.0_fm_0.3"

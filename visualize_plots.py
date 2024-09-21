@@ -2,46 +2,53 @@ import os
 import pickle as pkl
 import numpy as np
 import pandas as pd
-import seaborn as sns
+# import seaborn as sns
 import networkx as nx
 import operator
 
+from org.gesis.lib.io import create_subfolders
+# import tkinter
 # import matplotlib
-# matplotlib.use('Agg')
+# matplotlib.use('WebAgg')
+
 import matplotlib as mpl
-
-
-label_dict = {
-"nlindlocalind_alpha_1.0_beta_2.0": r"$\alpha=1$", 
-"indegreevarybetav2_beta_2.0": "Adaptive " + r"$\alpha$", # newest,
-"n2v_p_1.0_q_1.0": "n2v",
-"fw_p_1.0_q_1.0": "Fairwalk"
-}
-
-if os.environ.get('DISPLAY','') == '':
-    print('no display found. Using non-interactive Agg backend')
-    os.environ.__setitem__('DISPLAY', ':0.0')
-    mpl.use('Agg')
+mpl.use('Agg')
 
 import matplotlib.pyplot as plt
-plt.rcParams['text.usetex'] = True
 
-from org.gesis.lib.n2v_utils import get_walks, get_avg_group_centrality, read_graph, get_centrality_dict, get_diff_group_centrality, avg_centrality
+label_dict = {
+# "nlindlocalind_alpha_1.0_beta_2.0": r"$\alpha=1$", 
+# "indegreevarybetav2_beta_2.0": "Adaptive " + r"$\alpha$", # newest,
+# "n2v_p_1.0_q_1.0": "n2v",
+"baseline": "Baseline",
+"cw_p_4_alpha_0.7": "Crosswalk",
+"fw_p_1.0_q_1.0": "Fairwalk",
+"adaptivealphatest_beta_2.0":"Adaptive Alpha"
+}
+
+# if os.environ.get('DISPLAY','') == '':
+#     print('no display found. Using non-interactive Agg backend')
+#     os.environ.__setitem__('DISPLAY', ':0.0')
+#     mpl.use('Agg')
+
+os.environ['MPLCONFIGDIR'] = os.path.join(os.getenv('HOME'), '.config', 'matplotlib')
+# import matplotlib.pyplot as plt
+
+
+from org.gesis.lib.n2v_utils import get_walks, get_avg_group_centrality, read_graph, get_centrality_dict, get_diff_group_centrality, get_avg_group_centrality
 from generate_heatmap_centrality import get_grid
 
 T = 30
 hMM_list, hmm_list = np.arange(0,1.1,0.1), np.arange(0,1.1,0.1)
 
-
+main_path = "../AdaptiveAlpha/"
 
 def print_visibility(file_name):
  
-    if not os.path.exists(file_name): 
-        print("File name does not exist: ", file_name)
-        path2 = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/model_n2v_nohuman_p_1.0_q_1.0_name_rice/seed_42/_n2v_p_1.0_q_1.0-name_rice_t_29.gpickle"
-        print(path2, os.path.exists(path2))
-
+    if not os.path.exists(file_name) and "baseline" not in file_name: 
+        print(file_name)
         return dict()
+    
     g = read_graph(file_name)
     vis_dict = dict() 
     groups = list(set(nx.get_node_attributes(g, "group").values()))
@@ -50,6 +57,7 @@ def print_visibility(file_name):
     # elif "twitter" in file_name: min_grp, maj_grp = 2, 1
     cent_file = file_name.replace(".gpickle","") + ".pkl"
     if not os.path.exists(cent_file):
+        create_subfolders(cent_file)
         centrality_dict = nx.betweenness_centrality(g, normalized=True)
         print("Generating pkl file: ", cent_file)
         with open(cent_file, 'wb') as f:                
@@ -67,7 +75,7 @@ def print_visibility(file_name):
 
 def print_fairness(file_name):
  
-    if not os.path.exists(file_name): 
+    if not os.path.exists(file_name) and "baseline" not in file_name: 
         print(file_name)
         return dict()
     g = read_graph(file_name)
@@ -77,6 +85,7 @@ def print_fairness(file_name):
 
     cent_file = file_name.replace(".gpickle","") + ".pkl"
     if not os.path.exists(cent_file):
+         create_subfolders(cent_file)
          centrality_dict = nx.betweenness_centrality(g, normalized=True)
          print("Generating pkl file: ", cent_file)
          with open(cent_file, 'wb') as f:                
@@ -218,7 +227,7 @@ def plot_utility_metrics(ds="rice",models=[]):
     for model in models:
         pre_list, recall_list, auc_list = [],[],[]
         for seed in seed_list:
-            file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/utility/model_{}_name_{}/seed_{}/_name{}.pkl".format(model,ds,seed,ds)
+            file_name = main_path+"utility/model_{}_name_{}/seed_{}/_name{}.pkl".format(model,ds,seed,ds)
             pre, recall, acc, auc = print_utility(file_name)
             pre_list.append(pre)
             recall_list.append(recall)
@@ -329,7 +338,7 @@ def plot_fair_metrics(ds="rice",models=[],t=29):
     for model in models:
         vis_list = []
         for seed in seed_list:
-            file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t)
+            file_name = main_path+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t)
             vis_dict = print_visibility(file_name)
             print(vis_dict)
             vis_list.append(vis_dict)
@@ -380,7 +389,7 @@ def plot_fair_metrics_syn(syn_ds,models,fm=0.3):
         vis_list = []
         for seed in seed_list:
             # file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/model_{}_fm_{}/seed_{}/{}-N1000-fm{}-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,fm,seed,model,fm,hMM,hmm)
-            file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/{}_fm_{}/{}-N1000-fm{}-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,fm,model,fm,hMM,hmm)
+            file_name = main_path+"{}_fm_{}/{}-N1000-fm{}-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,fm,model,fm,hMM,hmm)
             vis_dict = print_visibility(file_name)
             vis_list.append(vis_dict)
 
@@ -407,8 +416,8 @@ def plot_fair_metrics_syn(syn_ds,models,fm=0.3):
     ax.set_xticks(x + width,labels)
     ax.legend(loc='upper left', ncols=3)
     ax.set_ylim(0, 0.004)
-    fig.savefig("vis_barplot_{}_fm{}.png".format(config,fm),bbox_inches='tight')
-
+    fig.savefig("../AdaptiveAlpha/vis_barplot_{}_fm{}.pdf".format(config,fm),bbox_inches='tight')
+    # plt.show()
 
 def plot_fair_metrics_v2(ds="rice",models=[],t=29):
     labels = [label_dict.get(model, model) for model in models]
@@ -424,7 +433,7 @@ def plot_fair_metrics_v2(ds="rice",models=[],t=29):
     for model in models:
         fair_list = []
         for seed in seed_list:
-            file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t)
+            file_name = main_path+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t)
             fair_dict = print_fairness(file_name)
             fair_list.append(fair_dict)
             fair_list.append(fair_dict)
@@ -651,9 +660,9 @@ def draw_graph(file_name,hMM=0.0,hmm=0.0):
     fig.savefig(img_filename, bbox_inches='tight')           
 
 if __name__ == "__main__":
-    ds = "facebook_locale"
-
-    models = ["n2v_p_1.0_q_1.0","fw_p_1.0_q_1.0","indegreevarybetav2_beta_2.0","nlindlocalind_alpha_1.0_beta_2.0"]
+    # ds = "facebook_locale"
+    ds = "facebook"
+    models = ["baseline","fw_p_1.0_q_1.0","cw_p_4_alpha_0.7","adaptivealphatest_beta_2.0"]
     t = 29
     plot_fair_metrics(ds=ds,models=models,t=t)
     plot_fair_metrics_v2(ds=ds,models=models,t=t)
@@ -661,6 +670,10 @@ if __name__ == "__main__":
     # plot_heg_hog(hMM=0.1,hmm=1.0)
     # plot_heg_hog(hMM=0.8,hmm=0.3)
     # plot_heg_hog(hMM=0.6,hmm=1.0)
+
+    # syn_ds = ["0.2,0.8"]
+    # models = ["cw_p_4_alpha_0.7"]
+    # plot_fair_metrics_syn(syn_ds,models)
 
         
 

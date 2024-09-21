@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import networkx as nx
-from facebook_scrap import get_graph, get_graph_syn
-
+from facebook_scrap import get_graph
+# from facebook_scrap import get_graph_syn
 
 def get_edge_info(g):
     node_attrs = nx.get_node_attributes(g, "group")
@@ -72,11 +72,13 @@ def load_rice():
     edge_file = os.path.join(dataset_path,"rice_subset.links")
     
     node_data, edge_data = list(), list()
+    mapping = dict()
     with open(node_attr_file, 'r') as fin:
-        for line in fin:
+        for i, line in enumerate(fin):
             s = line.split()
             item = (s[0], {"group":int(s[1])})
             node_data.append(item)
+            mapping[s[0]] = i
     
     with open(edge_file, 'r') as fin:
         for line in fin:
@@ -89,6 +91,7 @@ def load_rice():
     g = nx.DiGraph()
     g.add_nodes_from(node_data)
     g.add_edges_from(edge_data)
+    nx.relabel_nodes(g, mapping, copy=False)
     return g
 
 def load_twitter():

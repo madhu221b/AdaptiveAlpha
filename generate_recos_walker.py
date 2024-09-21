@@ -70,41 +70,41 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
 
 
 def run(hMM, hmm,model,fm,extra_params):
-    # try:  
+    try:  
         # Setting seed
-    np.random.seed(MAIN_SEED)
-    random.seed(MAIN_SEED)
-    folder_path = main_path+"/{}_fm_{}".format(model,fm)
-    new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
-    new_path = os.path.join(folder_path, new_filename) 
-    if os.path.exists(new_path): # disabling this condition
-        print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
-        return 
-    print("hMM: {}, hmm: {}".format(hMM, hmm))
+        np.random.seed(MAIN_SEED)
+        random.seed(MAIN_SEED)
+        folder_path = main_path+"/{}_fm_{}".format(model,fm)
+        new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
+        new_path = os.path.join(folder_path, new_filename) 
+        if os.path.exists(new_path): # disabling this condition
+            print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
+            return 
+        print("hMM: {}, hmm: {}".format(hMM, hmm))
 
-    # read the base graph from DPAH folder
-    old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
-    DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
-    g = read_graph(os.path.join(DPAH_path,old_filename))
+        # read the base graph from DPAH folder
+        old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
+        DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
+        g = read_graph(os.path.join(DPAH_path,old_filename))
 
-    node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
-    nx.set_node_attributes(g, node2group, 'group')
+        node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
+        nx.set_node_attributes(g, node2group, 'group')
 
-    iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
-    time = 0
-    for time in iterable:
-        is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-        if not is_file:
-            print("File does not exist for time {}, creating now".format(time))
-            seed = MAIN_SEED+time+1 
-            g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
-            g = g_updated
-            save_metadata(g, hMM, hmm, model,fm,t=time)
-        else:
-            print("File exists for time {}, loading it... ".format(time))
-            g = g_obj
-            
-
+        iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
+        time = 0
+        for time in iterable:
+            is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
+            if not is_file:
+                print("File does not exist for time {}, creating now".format(time))
+                seed = MAIN_SEED+time+1 
+                g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+                g = g_updated
+                save_metadata(g, hMM, hmm, model,fm,t=time)
+            else:
+                print("File exists for time {}, loading it... ".format(time))
+                g = g_obj
+    except Exception as err:
+        print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
 
 
 def is_file_exists(hMM, hmm, model,fm,t):
@@ -149,8 +149,8 @@ if __name__ == "__main__":
     parser.add_argument("--start", help="Start idx", type=float, default=0.1)
     parser.add_argument("--end", help="End idx", type=float, default=0.5)
 
-    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=2)
-    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.5)
+    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=4)
+    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.7)
 
     args = parser.parse_args()
     
