@@ -2,8 +2,31 @@
 Adaptive Alpha Random Walker where random walks of nodes are biased towards high in-degree nodes in local &amp; non-local neighborhoods.
  - Some code snippets have been borrowed from - https://github.com/gesiscss/Homophilic_Directed_ScaleFree_Networks
 
+(I) Installation: 
+```
+wget https://repo.continuum.io/archive/Anaconda3-2018.12-Linux-x86_64.sh
+bash Anaconda3-2018.12-Linux-x86_64.sh
+vim -i  ~/.bashrc
+```
+Add the following line to the end of the file - ```export PATH="/home/<<username>>/anaconda3/bin:$PATH"```
 
--> Scripts to Generate Recommendations:
+```
+conda create -n lr_env python=3.8
+source activate lr_env
+pip install networkx
+pip install tqdm
+pip install numpy
+pip install gensim
+pip install joblib
+pip install scikit-learn
+pip install node2vec
+pip install pandas
+pip install matplotlib
+
+```
+
+
+(II) Scripts to Generate Recommendations:
 
 (1) generate_recos_real_ds_model_based.py : Generate Recommendations with Utility & Fairness Scores for Real Datasets
 
