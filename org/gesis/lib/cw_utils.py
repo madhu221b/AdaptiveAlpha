@@ -33,6 +33,8 @@ def get_adj_matrix(g, weight_key="weight"):
     A = np.zeros((nodes,nodes))
     for u,v in g.edges():
         w = g[u][v].get("weight", 1)
+        if type(u) is str: u = int(u)
+        if type(v) is str: v = int(v)
         A[u][v] = w
     return A
 
@@ -52,20 +54,22 @@ def get_upweighted_weights(G, walks, p, alpha, d, r):
         R_v = nghs_df[nghs_df['group'] != I_v]["group"].unique()
          
         Z_same = np.dot(A[v,N_v],m_df.loc[N_v,"proximity"])
-        for u in N_v:
-            val = (A[v,u]*(1-alpha)*m_df.loc[u,"proximity"])/Z_same
-            weight_dict[(v,u)] = {"weight":val}
+        if Z_same != 0:
+            for u in N_v:
+                val = (A[v,u]*(1-alpha)*m_df.loc[u,"proximity"])/Z_same
+                weight_dict[(v,u)] = {"weight":val}
         
         for c in R_v:
             N_v_c = list(nghs_df[nghs_df['group'] == c]["node"])
             Z_diff = len(R_v)*np.dot(A[v,N_v_c],m_df.loc[N_v_c,"proximity"])
-            for u in N_v_c:
-                if len(N_v) != 0:
-                   val = (A[v,u]*(alpha)*m_df.loc[u,"proximity"])/Z_diff
-                   weight_dict[(v,u)] = {'weight':val}
-                else:
-                   val = (A[v,u]*m_df.loc[u,"proximity"])/Z_diff
-                   weight_dict[(v,u)] = {'weight':val}
+            if Z_diff != 0:
+                for u in N_v_c:
+                    if len(N_v) != 0:
+                        val = (A[v,u]*(alpha)*m_df.loc[u,"proximity"])/Z_diff
+                        weight_dict[(v,u)] = {'weight':val}
+                    else:
+                        val = (A[v,u]*m_df.loc[u,"proximity"])/Z_diff
+                        weight_dict[(v,u)] = {'weight':val}
 
 
     return weight_dict

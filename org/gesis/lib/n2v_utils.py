@@ -7,10 +7,11 @@ import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
 
 from org.gesis.lib.cw_utils import get_upweighted_weights
+from load_dataset import load_rice
 from fairwalk.fairwalk  import FairWalk
 from deepwalk.deepwalk  import DeepWalker
 from node2vec import Node2Vec
-from walkers.adaptivealpha import AdaptiveAlpha
+from walkers.adaptivealphatest import AdaptiveAlphaTest
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
 from walkers.indegreewalker import InDegreeWalker
 
@@ -20,7 +21,8 @@ WALK_LEN = 10
 NUM_WALKS = 200
 
 walker_dict = {
-  "adaptivealpha" : AdaptiveAlpha,
+#   "adaptivealpha" : AdaptiveAlpha,
+  "adaptivealphatest" : AdaptiveAlphaTest,
   "nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
   "indegree": InDegreeWalker
 }
@@ -190,13 +192,17 @@ def get_avg_group_centrality(g,centrality_dict,group=1):
     return avg_val
 
 def read_graph(file_name):
-    with open(os.path.join(file_name), 'rb') as f:
-              g = pkl.load(f)
+    if "baseline" in file_name and "rice" in file_name:
+        g = load_rice()
+    else:
+        with open(os.path.join(file_name), 'rb') as f:
+                g = pkl.load(f)
     try:
         node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
         nx.set_node_attributes(g, node2group, 'group')
     except Exception as e:
         print("This should be a real graph. Group attributes should be already set.")
+    print("graph: ",g)
     return g
 
 def get_centrality_dict(model,g,hMM,hmm,centrality="betweenness"):        

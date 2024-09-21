@@ -6,14 +6,11 @@ import random
 import time
 import pickle as pkl
 import argparse
-from fast_pagerank import pagerank_power
 
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
-from org.gesis.lib.graph import get_node_metadata_as_dataframe
 from org.gesis.lib.io import save_csv
-from org.gesis.lib.graph import get_circle_of_trust_per_node
-from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, get_top_recos, read_graph
+from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, get_top_recos, read_graph
 from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2
 from joblib import delayed
 from joblib import Parallel
@@ -43,6 +40,9 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         elif "n2v" in model:
             p, q = extra_params["p"], extra_params["q"]
             _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
+        elif args.model in ["cw"]:
+             p_cw, alpha_cw = extra_params["p_cw"], extra_params["alpha_cw"]
+             _, embeds = recommender_model_cw(g, t, path, p=p_cw, alpha=alpha_cw)
         else:
             _, embeds = recommender_model_walker(g,t,path,model=model,extra_params=extra_params)
         print("Getting Link Recommendations from {} Model".format(model))
@@ -114,7 +114,7 @@ def is_file_exists(name, model, seed,t):
     fn = os.path.join(folder_path,'_{}_t_{}.gpickle'.format(filename,t))
     print("checking for existence: ", fn)
     if os.path.exists(fn):
-        return True, nx.read_gpickle(fn)
+        return True, read_graph(fn)
     else:
         return False, None
     
@@ -131,14 +131,7 @@ def save_metadata(g, name, model,seed,t=0):
     fn = os.path.join(folder_path,'_{}_t_{}.gpickle'.format(filename,t))
     io.save_gpickle(g, fn)
 
-    ## [Personal] Specifying jobs
-    njobs = 24
-    if t == EPOCHS - 1:
-        df = get_node_metadata_as_dataframe(g, njobs=njobs)
-        csv_fn = os.path.join(folder_path,'{}_t_{}.csv'.format(filename,t))
-        io.save_csv(df, csv_fn)
-    
-    print("Saving graph and csv file at, ", fn.replace(".gpickle",""))
+    print("Saving graph file at, ", fn.replace(".gpickle",""))
 
 
 def save_modeldata(embeds,test_edges, true_labels, name, model,seed,t=0):
@@ -171,6 +164,10 @@ if __name__ == "__main__":
     parser.add_argument("--beta", help="Beta paramater", type=float, default=2.0)
     parser.add_argument("--alpha", help="Alpha paramater (Levy)", type=float, default=1.0)
     parser.add_argument("--seed", help="Seed", type=int, default=42)
+
+    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=4)
+    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.7)
+
    
     args = parser.parse_args()
     
@@ -182,6 +179,9 @@ if __name__ == "__main__":
     elif args.model in  ["nlindlocalind"]:
         model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
         extra_params = {"alpha":args.alpha,"beta":args.beta}
+    elif args.model in ["cw"]:
+        model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
+        extra_params = {"p_cw":args.p_cw,"alpha_cw":args.alpha_cw}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
