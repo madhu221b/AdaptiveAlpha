@@ -1,6 +1,7 @@
 *.out
-*/__pycache/
 *.pyc
 model_*
 *_fm_*/
 *.pdf
+*.png
+*.gpickle

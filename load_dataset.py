@@ -3,6 +3,8 @@ import numpy as np
 import networkx as nx
 from facebook_scrap import get_graph
 # from facebook_scrap import get_graph_syn
+from org.gesis.lib.io import save_gpickle, read_pickle
+
 
 def get_edge_info(g):
     node_attrs = nx.get_node_attributes(g, "group")
@@ -92,6 +94,7 @@ def load_rice():
     g.add_nodes_from(node_data)
     g.add_edges_from(edge_data)
     nx.relabel_nodes(g, mapping, copy=False)
+
     return g
 
 def load_twitter():

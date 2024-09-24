@@ -168,12 +168,12 @@ if __name__ == "__main__":
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
-    run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
+    # run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
 
-    # start_idx, end_idx = args.start, args.end
-    # print("STARTING IDX", start_idx, ", END IDX", end_idx)
-    # num_cores = 36
-    # [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
+    start_idx, end_idx = args.start, args.end
+    print("STARTING IDX", start_idx, ", END IDX", end_idx)
+    num_cores = 36
+    [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
 
 
     print("--- %s seconds ---" % (time.time() - start_time))

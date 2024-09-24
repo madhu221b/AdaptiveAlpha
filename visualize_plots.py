@@ -2,14 +2,11 @@ import os
 import pickle as pkl
 import numpy as np
 import pandas as pd
-# import seaborn as sns
+import seaborn as sns
 import networkx as nx
 import operator
 
 from org.gesis.lib.io import create_subfolders
-# import tkinter
-# import matplotlib
-# matplotlib.use('WebAgg')
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -17,13 +14,13 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 label_dict = {
-# "nlindlocalind_alpha_1.0_beta_2.0": r"$\alpha=1$", 
+ "nlindlocalind_alpha_1.0_beta_2.0": "NonLocal Walker", 
 # "indegreevarybetav2_beta_2.0": "Adaptive " + r"$\alpha$", # newest,
-# "n2v_p_1.0_q_1.0": "n2v",
+"n2v_p_1.0_q_1.0": "n2v",
 "baseline": "Baseline",
 "cw_p_4_alpha_0.7": "Crosswalk",
 "fw_p_1.0_q_1.0": "Fairwalk",
-"adaptivealphatest_beta_2.0":"Adaptive Alpha"
+"adaptivealpha_beta_2.0":"Adaptive-"+r"$\alpha$"
 }
 
 # if os.environ.get('DISPLAY','') == '':
@@ -48,8 +45,8 @@ def print_visibility(file_name):
     if not os.path.exists(file_name) and "baseline" not in file_name: 
         print(file_name)
         return dict()
-    
-    g = read_graph(file_name)
+    seed = file_name.split("seed_")[-1].split("/")[0]
+    g = read_graph(file_name,seed=seed)
     vis_dict = dict() 
     groups = list(set(nx.get_node_attributes(g, "group").values()))
     print("groups:", groups)
@@ -78,7 +75,8 @@ def print_fairness(file_name):
     if not os.path.exists(file_name) and "baseline" not in file_name: 
         print(file_name)
         return dict()
-    g = read_graph(file_name)
+    seed = file_name.split("seed_")[-1].split("/")[0]
+    g = read_graph(file_name,seed=seed)
     fairness_dict = dict() 
     groups = list(set(nx.get_node_attributes(g, "group").values()))
     
@@ -329,7 +327,7 @@ def plot_fair_metrics(ds="rice",models=[],t=29):
     x = np.arange(len(models))  # the label locations
     width = 0.25  # the width of the bars
     multiplier = 0
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(10,5))
     seed_list = [42,420,4200]
 
     plot_dict = dict()
@@ -424,7 +422,7 @@ def plot_fair_metrics_v2(ds="rice",models=[],t=29):
     x = np.arange(len(models))  # the label locations
     width = 0.25  # the width of the bars
     multiplier = 0
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(10,5))
     seed_list =  [42,420,4200]
     # seed_list = [42]
 
@@ -659,22 +657,88 @@ def draw_graph(file_name,hMM=0.0,hmm=0.0):
     img_filename = "trial_hMM{}_hmm{}.pdf".format(hMM,hmm)
     fig.savefig(img_filename, bbox_inches='tight')           
 
-if __name__ == "__main__":
-    # ds = "facebook_locale"
-    ds = "facebook"
-    models = ["baseline","fw_p_1.0_q_1.0","cw_p_4_alpha_0.7","adaptivealphatest_beta_2.0"]
-    t = 29
-    plot_fair_metrics(ds=ds,models=models,t=t)
-    plot_fair_metrics_v2(ds=ds,models=models,t=t)
-    plot_utility_metrics(ds=ds,models=models)
-    # plot_heg_hog(hMM=0.1,hmm=1.0)
-    # plot_heg_hog(hMM=0.8,hmm=0.3)
-    # plot_heg_hog(hMM=0.6,hmm=1.0)
 
-    # syn_ds = ["0.2,0.8"]
-    # models = ["cw_p_4_alpha_0.7"]
-    # plot_fair_metrics_syn(syn_ds,models)
-
+def plot_kde(filename):
+    """
         
+    # sns.kdeplot(data=betn_dfM["betweenness"],color="blue",fill=True,ax=ax)
+    # sns.kdeplot(data=betn_dfm["betweenness"].cumsum(),color="orange",fill=True,ax=ax)
+
+    """
+    fig, (ax1, ax2) = plt.subplots(1,2,figsize=(15,5))
+
+    g = read_graph(filename)
+    node_attr = nx.get_node_attributes(g, "group")
+    betn = nx.betweenness_centrality(g)
+    betnM = {k:v for k,v in betn.items() if node_attr[k] == 0}
+    betnm = {k:v for k,v in betn.items() if node_attr[k] == 1}
+
+    betn_df = pd.DataFrame.from_dict(betn, orient='index', columns=['betweenness'])
+    betn_dfM = pd.DataFrame.from_dict(betnM, orient='index', columns=['betweenness'])
+    betn_dfm = pd.DataFrame.from_dict(betnm, orient='index', columns=['betweenness'])
+    
+    sns.distplot(betn_dfM, hist=True, label="betn", ax=ax1, rug=True)
+    sns.distplot(betn_dfm, hist=True, label="betn", ax=ax1, rug=True)
+    ax1.set_title('basic distplot (kde=True)')
+    lines = ax1.get_lines()
+   
+    # get distplot line points
+    lineM, linem = ax1.get_lines()[0], ax1.get_lines()[1]
+    xdM, xdm = lineM.get_xdata(), linem.get_xdata()
+    ydM, ydm = lineM.get_ydata(), linem.get_ydata()
+    # https://stackoverflow.com/questions/29661574/normalize-numpy-array-columns-in-python
+    
+    def normalize(x,x_all):
+        return (x - x_all.min(0)) / x_all.ptp(0)
+    #normalize points)
+    y_all = np.hstack([ydM,ydm])
+    ydM = normalize(ydM,y_all)
+    ydm = normalize(ydm,y_all)
+    # plot them in another graph
+    ax2.plot(xdM, ydM, color="blue",label="Majority")
+    ax2.plot(xdm, ydm, color="orange",label="Minority")
+    # ax2.set_title('basic distplot (kde=True)\nwith normalized y plot values')
+    ax2.legend()
+    ax1.set_visible(False)
+    # ax.legend()
+
+    ax2.set_xlabel("Betwenness Centrality")
+    ax2.set_ylabel("Normalized PDF")
+    # sns_plot = sns.displot(data=list(betn_df["betweenness"]))
+    fig.savefig("output.pdf")
+
+
+
+from org.gesis.lib.metrics_utils import get_statistical_imparity, get_er_nwlevel, get_er_userlevel,  get_disparity
+if __name__ == "__main__":
+    # ds = "facebook_locale" "cw_p_4_alpha_0.7",
+    # ds = "rice"
+    models = ["baseline","n2v_p_1.0_q_1.0","fw_p_1.0_q_1.0","cw_p_4_alpha_0.7","nlindlocalind_alpha_1.0_beta_2.0","adaptivealpha_beta_2.0"]
+    # t = 29
+    # plot_fair_metrics(ds=ds,models=models,t=t)
+    # plot_fair_metrics_v2(ds=ds,models=models,t=t)
+    # plot_utility_metrics(ds=ds,models=models[1:])
+    # # plot_heg_hog(hMM=0.1,hmm=1.0)
+    # # plot_heg_hog(hMM=0.8,hmm=0.3)
+    # # plot_heg_hog(hMM=0.6,hmm=1.0)
+
+    # # syn_ds = ["0.2,0.8"]
+    # # models = ["cw_p_4_alpha_0.7"]
+    # # plot_fair_metrics_syn(syn_ds,models)
+    models = models[1:]
+    use_syn_ds = False
+    name = "rice"
+    for model in models:
+        get_statistical_imparity(model=model,use_syn_ds=use_syn_ds,hMM=0.5,hmm=0.5,ds=name)
+
+    # model = "fw_p_1.0_q_1.0"
+    # get_er_nwlevel(model=model,use_syn_ds=use_syn_ds,hMM=0.2,hmm=0.8,ds=name)
+
+    # model = "cw_p_4_alpha_0.7"
+    # # get_er_nwlevel(model=model,use_syn_ds=use_syn_ds,hMM=0.2,hmm=0.8,ds=name)
+    # filename = "/home/mpawar/AdaptiveAlpha/adaptivealphatest_beta_2.0_fm_0.3/adaptivealphatest_beta_2.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM0.8-hmm0.2_t_29.gpickle"
+    # # filename = "/home/mpawar/AdaptiveAlpha/DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM0.2-hmm0.8-ID0.gpickle"
+    # # filename = "/home/mpawar/AdaptiveAlpha/fw_p_1.0_q_1.0_fm_0.3/fw_p_1.0_q_1.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM0.8-hmm0.2_t_29.gpickle"
+    # plot_kde(filename)
 
 
