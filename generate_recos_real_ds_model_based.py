@@ -31,6 +31,7 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         '''
                               
         # set seed
+        g_prev = g.copy()
         set_seed(seed)
 
         print("Generating Node Embeddings")
@@ -59,6 +60,7 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
                g.add_edge(u,v)
             seed += 1
         print("No of new edges added: ", new_edges)
+        x = list(set(g.edges())-set(g_prev.edges()))
         return g, embeds
 
 
@@ -79,9 +81,19 @@ def run(name,model,main_seed,extra_params):
 
     # Sample testing edges & create training instance g object
     print("Total edges in the graph: ", g.number_of_edges())
-    g_train, test_edges, true_labels = get_train_test_graph(g.copy(), main_seed)
+    g_train_path = "./data/{}/{}_{}.gpickle".format(name,name,main_seed)
+    test_dict_path = "./data/{}/{}_{}_dict.gpickle".format(name,name,main_seed)
+    if not os.path.exists(g_train_path) or not os.path.exists(test_dict_path):
+        g_train, test_edges, true_labels = get_train_test_graph(g.copy(), main_seed)
+        io.save_gpickle(g_train, "./data/{}/{}_{}.gpickle".format(name,name,main_seed))
+        io.save_pickle({"test_edges":test_edges,"true_labels":true_labels}, "./data/{}/{}_{}_dict.gpickle".format(name,name,main_seed))
+    else:
+        g_train = io.read_pickle(g_train_path)
+        dict_ = io.read_pickle(test_dict_path)
+        test_edges, true_labels = dict_["test_edges"], dict_["true_labels"]
 
     g = g_train 
+
     print("Total edges after sampling: ", g.number_of_edges())
     iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
     time = 0
@@ -95,7 +107,7 @@ def run(name,model,main_seed,extra_params):
            
             g = g_updated
             save_modeldata(embeds, test_edges, true_labels,name, model,main_seed,t=time)
-            save_metadata(g,name, model,main_seed,t=time)
+            save_metadata(g_updated,name, model,main_seed,t=time)
         else:
             print("File exists for time {}, loading it... ".format(time))
             g = g_obj
@@ -176,12 +188,12 @@ if __name__ == "__main__":
     if args.model in ["fw","n2v"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
-    elif args.model in  ["nlindlocalind"]:
-        model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
-        extra_params = {"alpha":args.alpha,"beta":args.beta}
     elif args.model in ["cw"]:
         model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
         extra_params = {"p_cw":args.p_cw,"alpha_cw":args.alpha_cw}
+    elif args.model in  ["nlindlocalind"]:
+        model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
+        extra_params = {"alpha":args.alpha,"beta":args.beta}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}

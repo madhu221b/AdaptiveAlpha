@@ -6,26 +6,32 @@ import pickle as pkl
 import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
 
+
 from org.gesis.lib.cw_utils import get_upweighted_weights
-from load_dataset import load_rice
+from org.gesis.lib.io import read_pickle
+from load_dataset import load_rice, load_dataset
 from fairwalk.fairwalk  import FairWalk
 from deepwalk.deepwalk  import DeepWalker
 from node2vec import Node2Vec
 from walkers.adaptivealphatest import AdaptiveAlphaTest
+from walkers.adaptivealpha import AdaptiveAlpha
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
 from walkers.indegreewalker import InDegreeWalker
+
+walker_dict = {
+"adaptivealpha" : AdaptiveAlpha,
+"adaptivealphatest" : AdaptiveAlphaTest,
+"nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
+"indegree": InDegreeWalker
+}
+
 
 # Hyperparameter for node2vec/fairwalk
 DIM = 64
 WALK_LEN = 10
 NUM_WALKS = 200
 
-walker_dict = {
-#   "adaptivealpha" : AdaptiveAlpha,
-  "adaptivealphatest" : AdaptiveAlphaTest,
-  "nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
-  "indegree": InDegreeWalker
-}
+
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -116,7 +122,7 @@ def get_top_recos(g, embeddings, u, N=1):
         similar_nodes = idx_sim[:N]
         v = [tgt[0] for tgt in similar_nodes][0]
         results.append((src_node,v))
-       
+    print("len(results) in recos method: ", len(results))   
     return results 
 
 
@@ -191,9 +197,15 @@ def get_avg_group_centrality(g,centrality_dict,group=1):
     avg_val = np.mean(centrality)
     return avg_val
 
-def read_graph(file_name):
+def read_graph(file_name,seed=None):
     if "baseline" in file_name and "rice" in file_name:
-        g = load_rice()
+        name = "rice"
+        dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
+        g = read_pickle(dsname)
+    elif "baseline" in file_name and "facebook" in file_name:
+        name = "facebook"
+        dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
+        g = read_pickle(dsname)
     else:
         with open(os.path.join(file_name), 'rb') as f:
                 g = pkl.load(f)
@@ -201,8 +213,9 @@ def read_graph(file_name):
         node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
         nx.set_node_attributes(g, node2group, 'group')
     except Exception as e:
-        print("This should be a real graph. Group attributes should be already set.")
-    print("graph: ",g)
+        pass
+        # print("This should be a real graph. Group attributes should be already set.")
+
     return g
 
 def get_centrality_dict(model,g,hMM,hmm,centrality="betweenness"):        

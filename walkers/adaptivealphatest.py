@@ -116,9 +116,8 @@ class AdaptiveAlphaTest(Walker):
     def _get_group_to_node_dict(self):
         group2node = dict()
         for node, node_id in self.node_attrs.items():
-            if node_id not in group2node:
-                group2node[node_id] = list()
-                group2node[node_id].append(node)  
+            if node_id not in group2node: group2node[node_id] = list()
+            group2node[node_id].append(node)  
         return group2node
 
     def _precompute_probabilities(self):
@@ -176,6 +175,7 @@ class AdaptiveAlphaTest(Walker):
         parallel_generate_walks = self.non_local_generate_walk
         
         for group in self.groups:
+            
             nodes_group = self.group_to_node_dict[group]
             num_walks = int(self.num_walks*self.walk_alpha_pr[group])
             print("Generate non local walks for group : {}, walks: {} ".format(group,num_walks))
