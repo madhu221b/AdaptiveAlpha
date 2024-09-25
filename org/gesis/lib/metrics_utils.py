@@ -23,7 +23,7 @@ def get_edge_dict(recos, g):
         reco_dict[(u,v)] += 1
     return reco_dict, count_dict
 
-def get_statistical_imparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None):
+def get_statistical_imparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None, seed=42):
     mean_sp = list()
     for t in range(0,T):
 
@@ -35,7 +35,6 @@ def get_statistical_imparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None)
 
             curr_gpath = os.path.join(MAIN_PATH,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,t))
         else: # use real dataset
-            seed = 42
             if t == 0:
                 prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format("baseline",ds,seed,"baseline",ds,t-1)
             else: 
@@ -54,11 +53,10 @@ def get_statistical_imparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None)
         mean_sp.append(var_sp)
 
     total_sp = np.mean(mean_sp)
-    print("Model - {} Statistical Imparity for T = {} is {:2e}".format(model,T,total_sp))
     return total_sp
 
 
-def get_er_nwlevel(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None):
+def get_er_nwlevel(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None, seed=42):
     mean_erg = list()
     for t in range(0,T):
 
@@ -70,7 +68,6 @@ def get_er_nwlevel(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None):
 
             curr_gpath = os.path.join(MAIN_PATH,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,t))
         else: # use real dataset
-            seed = 42 # use a fixed seed 
             if t == 0:
                 prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format("baseline",ds,seed,"baseline",ds,t-1)
             else: 
@@ -136,10 +133,9 @@ def get_er_userlevel(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None):
         print("Model - {} Equality of User Level for Attr:{} at User Level for T = {} is {}".format(model,zs,T,mean_val))
 
 
-def get_disparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None):
+def get_disparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None,seed=42):
 
     reco_list = list()
-    seed = 42 # use a fixed seed 
     for t in range(0,T):
 
         if use_syn_ds:
@@ -189,6 +185,7 @@ def get_disparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None):
     
     final_var = np.var(final_list)
     print("Model - {} Disparity - {}".format(model,final_var))
+    return final_var
 
 
   

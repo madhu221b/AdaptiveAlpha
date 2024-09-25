@@ -32,7 +32,9 @@ plot_directory = "./plots/heatmap/centrality"
 if not os.path.exists(plot_directory):
     os.makedirs(plot_directory)
 
-def get_diff_grid(files,model,centrality):
+def get_diff_grid(files,model,centrality,group):
+    dict_folder = main_path+"centrality/{}/{}".format(centrality,model)
+    if not os.path.exists(dict_folder): os.makedirs(dict_folder)
   
     grid = np.zeros((len(hmm_list),len(hMM_list)))
     for file_name in files:
@@ -43,8 +45,6 @@ def get_diff_grid(files,model,centrality):
         hMM_idx, hmm_idx = int(float(hMM)*10), int(float(hmm)*10)
 
         g = read_graph(file_name)
-        dict_folder = "./centrality/{}/{}".format(centrality,model)
-        if not os.path.exists(dict_folder): os.makedirs(dict_folder)
         dict_file_name = dict_folder+"/_hMM{}_hmm{}.pkl".format(hMM,hmm)
         if not os.path.exists(dict_file_name):
             if centrality == "betweenness":
@@ -63,31 +63,30 @@ def get_diff_grid(files,model,centrality):
                 centrality_dict = pkl.load(f)
                
 
-        minority_centrality = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == 1]
-        avg_min_val = np.mean(minority_centrality)
+        centrality_1 = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == group]
+        val_1 = np.mean(centrality_1)
 
-        majority_centrality = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == 0]
-        avg_maj_val = np.mean(majority_centrality)
-        grid[hmm_idx][hMM_idx] = (avg_min_val-avg_maj_val)
-        print("hMM: {} hmm: {} , avg min : {}, avg maj : {}".format(hMM,hmm,avg_min_val,avg_maj_val))
+        centrality_2 = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] != group]
+        val_2 = np.mean(centrality_2)
+        grid[hmm_idx][hMM_idx] = (val_1-val_2)
     return grid
 
 
-def get_grid(files,model,centrality):
+def get_grid(files, model, centrality, group=1):
+    dict_folder = main_path+"centrality/{}/{}".format(centrality,model)
+    if not os.path.exists(dict_folder): os.makedirs(dict_folder)
   
     grid = np.zeros((len(hmm_list),len(hMM_list)))
     for file_name in files:
         # fm_ext = float(file_name.split("fm")[-1].split("-")[0])
         # if fm_ext != fm: continue
+        
         hMM, hmm = file_name.split("hMM")[-1].split("-")[0], file_name.split("hmm")[-1].split("-")[0]
         hMM, hmm = hMM.replace(".gpickle","").replace("_t_29",""), hmm.replace(".gpickle","").replace("_t_29","")
         hMM_idx, hmm_idx = int(float(hMM)*10), int(float(hmm)*10)
-      
-        # print("hMM: {}, hmm: {}".format(hMM, hmm))
-     
+       
         g = read_graph(file_name)
-        dict_folder = "./centrality/{}/{}".format(centrality,model)
-        if not os.path.exists(dict_folder): os.makedirs(dict_folder)
+
         dict_file_name = dict_folder+"/_hMM{}_hmm{}.pkl".format(hMM,hmm)
         if not os.path.exists(dict_file_name):
             if centrality == "betweenness":
@@ -106,23 +105,23 @@ def get_grid(files,model,centrality):
                 centrality_dict = pkl.load(f)
                
 
-        minority_centrality = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == 1]
-        avg_val = np.mean(minority_centrality)
+        cent_group = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == group]
+        avg_val = np.mean(cent_group)
         print("hMM: {}, hmm: {}, betn: {}".format(hMM, hmm,avg_val))
         grid[hmm_idx][hMM_idx] = avg_val
     return grid
 
     
-def generate_heatmap(file_path, model, reco_type, centrality, diff=False):
+def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=1):
     all_files = os.listdir(file_path)
     if "fm" in model and reco_type == "after":
          graph_files = [os.path.join(file_path,file_name) for file_name in all_files if "netmeta" not in file_name and ".gpickle" in file_name and "t_29" in file_name]
     else:
         graph_files = [os.path.join(file_path,file_name) for file_name in all_files if "netmeta" not in file_name and ".gpickle" in file_name]
     if diff:
-        grid = get_diff_grid(graph_files, model, centrality)
+        grid = get_diff_grid(graph_files, model, centrality, group)
     else:
-        grid = get_grid(graph_files, model, centrality)
+        grid = get_grid(graph_files, model, centrality, group)
     print("No of files read: ", len(graph_files))
     if reco_type == "before":
         heatmap = grid.T
@@ -164,34 +163,18 @@ def generate_heatmap(file_path, model, reco_type, centrality, diff=False):
 
     fig = ax.get_figure()
     model = model.replace("/seed_42","")
-    fig.savefig(plot_directory+"/{}_{}_{}_diff_{}.pdf".format(reco_type,model,centrality,diff),bbox_inches='tight')
+    fig.savefig(plot_directory+"/{}_{}_{}_diff_{}_group_{}.pdf".format(reco_type,model,centrality,diff,group),bbox_inches='tight')
     return heatmap
 
-def compare_heatmap(heatmap1, heatmap2):
-
-    compare = np.abs(heatmap2) < np.abs(heatmap1)
-    
-    return np.sum(compare)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", help="model", type=str, default='.')
     parser.add_argument("--reco", help="before/after recommendation", type=str, default='')
     parser.add_argument("--centrality", help="closeness/betweenness", type=str, default='betweenness')
+    parser.add_argument('--group', help="Minority (1) or Majority (0) Group", type=int, default=1)
     parser.add_argument('--diff', action='store_true')
     args = parser.parse_args()
     path = main_path+"{}".format(args.model)
-    generate_heatmap(path, args.model, args.reco, args.centrality,args.diff) # usual 
-    
-#     model1 = "fw_p_1.0_q_1.0_fm_0.3"
-# #     model1 = "beepboopv2_beta_2.0_fm_0.3"
-# #    #  model1 = "indegree_beta_2.0_fm_0.3_impbaseline"
-#     path1 = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/{}".format(model1)
-#     heatmap1 = generate_heatmap(path1,model1, args.reco, args.centrality,args.diff)
-    
-#     model2 = args.model
-#     heatmap2 = generate_heatmap(path, args.model, args.reco, args.centrality,args.diff)
-
-#     val = compare_heatmap(heatmap1, heatmap2)
-#     print("{} is better than {} in {} configs".format(model2,model1,val))
+    generate_heatmap(path, args.model, args.reco, args.centrality, args.diff, args.group) 
     
