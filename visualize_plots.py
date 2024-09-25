@@ -7,6 +7,7 @@ import networkx as nx
 import operator
 
 from org.gesis.lib.io import create_subfolders
+from org.gesis.lib.metrics_utils import get_statistical_imparity, get_er_nwlevel, get_er_userlevel,  get_disparity
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -37,7 +38,7 @@ from generate_heatmap_centrality import get_grid
 
 T = 30
 hMM_list, hmm_list = np.arange(0,1.1,0.1), np.arange(0,1.1,0.1)
-
+MAIN_SEEDS = [42,420,4200]
 main_path = "../AdaptiveAlpha/"
 
 def print_visibility(file_name):
@@ -669,7 +670,7 @@ def plot_kde(filename):
 
     g = read_graph(filename)
     node_attr = nx.get_node_attributes(g, "group")
-    betn = nx.betweenness_centrality(g)
+    betn = nx.betweenness_centrality(g,normalized=True)
     betnM = {k:v for k,v in betn.items() if node_attr[k] == 0}
     betnm = {k:v for k,v in betn.items() if node_attr[k] == 1}
 
@@ -677,8 +678,10 @@ def plot_kde(filename):
     betn_dfM = pd.DataFrame.from_dict(betnM, orient='index', columns=['betweenness'])
     betn_dfm = pd.DataFrame.from_dict(betnm, orient='index', columns=['betweenness'])
     
-    sns.distplot(betn_dfM, hist=True, label="betn", ax=ax1, rug=True)
-    sns.distplot(betn_dfm, hist=True, label="betn", ax=ax1, rug=True)
+    # sns.distplot(betn_dfM, hist=True, label="betn", ax=ax1)
+    # sns.distplot(betn_dfm, hist=True, label="betn", ax=ax1)
+    sns.kdeplot(betn_dfM, ax=ax1)
+    sns.kdeplot(betn_dfm, ax=ax1)
     ax1.set_title('basic distplot (kde=True)')
     lines = ax1.get_lines()
    
@@ -700,16 +703,143 @@ def plot_kde(filename):
     # ax2.set_title('basic distplot (kde=True)\nwith normalized y plot values')
     ax2.legend()
     ax1.set_visible(False)
-    # ax.legend()
 
-    ax2.set_xlabel("Betwenness Centrality")
+
+    ax2.set_xlabel("Betweenness Centrality")
     ax2.set_ylabel("Normalized PDF")
+    # ax2.set_xlim(right=0.3)
     # sns_plot = sns.displot(data=list(betn_df["betweenness"]))
     fig.savefig("output.pdf")
 
+def plot_kde_v2(filename):
+    """
+        
+    # sns.kdeplot(data=betn_dfM["betweenness"],color="blue",fill=True,ax=ax)
+    # sns.kdeplot(data=betn_dfm["betweenness"].cumsum(),color="orange",fill=True,ax=ax)
+
+    """
+    fig, ax = plt.subplots(1,1)
+
+    g = read_graph(filename)
+    node_attr = nx.get_node_attributes(g, "group")
+    betn = nx.betweenness_centrality(g, normalized=True)
+    betn_df = pd.DataFrame.from_dict(betn, orient='index', columns=['betweenness'])
+    indegree_df = pd.DataFrame.from_dict(dict(g.in_degree()), orient='index', columns=['indegree'])
+    indegree_df = indegree_df/indegree_df.sum()
+    combined_df = pd.concat([betn_df,indegree_df],axis=1)
+   
+    sns.kdeplot(data=combined_df, x="betweenness", y="indegree",fill=True)
+
+    ax.set_xlabel("Betweenness Centrality")
+    ax.set_ylabel("Indegree Centrality")
+    ax.set_xlim(right=0.01)
+    ax.set_ylim(top=0.006)
+    # sns_plot = sns.displot(data=list(betn_df["betweenness"]))
+    fig.savefig("output.pdf")
+
+def get_statistical_imparity_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
+
+    fig, ax = plt.subplots( nrows=1, ncols=1 )  # create figure & 1 axis
+    for ds in ["rice", "facebook"]:
+        mean_list, std_list = list(), list()
+        for model in models:
+            model_sp = list()
+            for seed in MAIN_SEEDS:
+                val = get_statistical_imparity(model,use_syn_ds=use_syn_ds,hMM=hMM,hmm=hmm,ds=ds,seed=seed)
+                model_sp.append(val)
+            mean_sp, var_sp = np.mean(model_sp), np.var(model_sp)
+            mean_list.append(mean_sp)
+            std_list.append(var_sp)
+        
+        ax.errorbar([label_dict[_] for _ in models], mean_list, label=ds, marker="o", yerr=std_list)
 
 
-from org.gesis.lib.metrics_utils import get_statistical_imparity, get_er_nwlevel, get_er_userlevel,  get_disparity
+    ax.set_xlabel("Methods")
+    ax.set_ylabel("Statistical Parity")
+    ax.invert_yaxis()
+    ax.legend(loc = "lower right",bbox_to_anchor=(0.4,0.0))
+    fig.savefig("statistical_imparity.pdf",bbox_inches='tight')   # save the figure to file
+    plt.close(fig)
+
+
+
+def get_er_network_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
+    """
+    Scaled down by 10**4
+    """
+    fig, ax = plt.subplots( nrows=1, ncols=1 )  # create figure & 1 axis
+    allvals = list()
+    for ds in ["rice","facebook"]:
+        mean_list, std_list = list(), list()
+        for model in models:
+            model_er = list()
+            for seed in MAIN_SEEDS:
+                val = get_er_nwlevel(model,use_syn_ds=use_syn_ds,hMM=hMM,hmm=hmm,ds=ds,seed=seed)
+                model_er.append(val)
+            model_er = np.array(model_er)/10**4
+    
+            mean_er, var_er = np.mean(model_er), np.var(model_er)
+            mean_list.append(mean_er)
+            allvals.extend(mean_list)
+            std_list.append(var_er)
+        
+        ax.errorbar([label_dict[_] for _ in models], mean_list, label=ds, marker="o", yerr=std_list)
+
+
+    ax.set_xlabel("Methods")
+    ax.set_ylabel("Equality of Representation at Network Level")
+    # ax.set_yscale("log")
+    # ax.set_ylim(np.min(allvals), np.max(allvals))
+    ax.invert_yaxis()
+    ax.legend(loc = "lower right",bbox_to_anchor=(0.4,0.0))
+    fig.savefig("er_nw.pdf",bbox_inches='tight')   # save the figure to file
+    plt.close(fig)
+
+def get_disparity_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
+
+    fig, ax = plt.subplots( nrows=1, ncols=1 )  # create figure & 1 axis
+    for ds in ["rice", "facebook"]:
+        mean_list, std_list = list(), list()
+        for model in models:
+            model_dis = list()
+            for seed in MAIN_SEEDS:
+                val = get_disparity(model,use_syn_ds=use_syn_ds,hMM=hMM,hmm=hmm,ds=ds,seed=seed)
+                model_dis.append(val)
+            mean_dis, var_dis = np.mean(model_dis), np.var(model_dis)
+            mean_list.append(mean_dis)
+            std_list.append(var_dis)
+        
+        ax.errorbar([label_dict[_] for _ in models], mean_list, label=ds, marker="o", yerr=std_list)
+
+
+    ax.set_xlabel("Methods")
+    ax.set_ylabel("Disparity")
+    ax.invert_yaxis()
+    ax.legend(loc = "lower right",bbox_to_anchor=(0.4,0.0))
+    fig.savefig("disparity.pdf",bbox_inches='tight')   # save the figure to file
+    plt.close(fig)
+
+def plot_betn_vs_indegree(model,hMM,hmm):
+    fig, ax = plt.subplots(nrows=1, ncols=1) 
+
+
+    # path =  main_path+"DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
+    path = os.path.join(main_path,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,29))
+    g = read_graph(path)
+    bet = nx.betweenness_centrality(g, normalized=True)
+    ind = g.in_degree()
+    bet_list , ind_list = list(), list()
+    for k, v in bet.items():
+        bet_list.append(v)
+        ind_list.append(ind[k])
+    ax.scatter(bet_list,ind_list)
+
+    ax.set_xlabel("Betweenness Centrality")
+    ax.set_ylabel("Indegree Centrality")
+
+    fig.savefig('scatter.pdf'.format(hMM,hmm),bbox_inches='tight')   # save the figure to file
+    plt.close(fig)   
+
 if __name__ == "__main__":
     # ds = "facebook_locale" "cw_p_4_alpha_0.7",
     # ds = "rice"
@@ -725,20 +855,29 @@ if __name__ == "__main__":
     # # syn_ds = ["0.2,0.8"]
     # # models = ["cw_p_4_alpha_0.7"]
     # # plot_fair_metrics_syn(syn_ds,models)
-    models = models[1:]
-    use_syn_ds = False
-    name = "rice"
-    for model in models:
-        get_statistical_imparity(model=model,use_syn_ds=use_syn_ds,hMM=0.5,hmm=0.5,ds=name)
+    # models = models[1:]
+    # use_syn_ds = False
+    # name = "rice"
+
+    # models_sp = ["n2v_p_1.0_q_1.0","fw_p_1.0_q_1.0","cw_p_4_alpha_0.7","adaptivealpha_beta_2.0"]
+    # # get_statistical_imparity_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
+    # # get_er_network_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
+    # get_disparity_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
 
     # model = "fw_p_1.0_q_1.0"
     # get_er_nwlevel(model=model,use_syn_ds=use_syn_ds,hMM=0.2,hmm=0.8,ds=name)
 
     # model = "cw_p_4_alpha_0.7"
     # # get_er_nwlevel(model=model,use_syn_ds=use_syn_ds,hMM=0.2,hmm=0.8,ds=name)
-    # filename = "/home/mpawar/AdaptiveAlpha/adaptivealphatest_beta_2.0_fm_0.3/adaptivealphatest_beta_2.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM0.8-hmm0.2_t_29.gpickle"
-    # # filename = "/home/mpawar/AdaptiveAlpha/DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM0.2-hmm0.8-ID0.gpickle"
-    # # filename = "/home/mpawar/AdaptiveAlpha/fw_p_1.0_q_1.0_fm_0.3/fw_p_1.0_q_1.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM0.8-hmm0.2_t_29.gpickle"
-    # plot_kde(filename)
+
+    hMM, hmm = 0.2, 0.8
+    # filename = "/home/mpawar/AdaptiveAlpha/adaptivealpha_beta_2.0_fm_0.3/adaptivealpha_beta_2.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(hMM,hmm)
+    filename = "/home/mpawar/AdaptiveAlpha/DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
+    # filename = "/home/mpawar/AdaptiveAlpha/fw_p_1.0_q_1.0_fm_0.3/fw_p_1.0_q_1.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(hMM,hmm)
+    plot_kde_v2(filename)
+     
+    # model = "adaptivealpha_beta_2.0"
+    # hMM, hmm = 0.2, 0.8
+    # plot_betn_vs_indegree(model,hMM,hmm)
 
 
