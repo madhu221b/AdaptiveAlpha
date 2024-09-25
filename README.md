@@ -36,7 +36,7 @@ Usage -
 
 | argument      | values|description                                                                  |
 |----------------------|-------|-----------------------------------------------------------------------|
-| model | n2v (Node2Vec) , fw (Fairwalk), adaptivealpha (Adaptive Alpha), nlindlocalind (NonLocal - Local Indegree Walker) | Link Recommenders to generate Recommendations  |
+| model | n2v (Node2Vec) , fw (Fairwalk), cw (Crosswalk), adaptivealpha (Adaptive Alpha), nlindlocalind (NonLocal Indegree Walker) | Link Recommenders to generate Recommendations  |
 | name | rice, facebook | Dataset Name |
 | alpha | 1.0 | Optional used with model - nlindlocalind. As part of sanity check - alpha_g = 1 |
 
@@ -46,11 +46,22 @@ Usage -
 ```python generate_recos_walker.py --model << >> --hmm << >> --hMM << >>```
 | argument      | values|description                                                                  |
 |----------------------|-------|-----------------------------------------------------------------------|
-| model | n2v (Node2Vec) , fw (Fairwalk), adaptivealpha (Adaptive Alpha) | Link Recommenders to generate Recommendations  |
+| model | n2v (Node2Vec) , fw (Fairwalk), cw (Crosswalk), adaptivealpha (Adaptive Alpha) | Link Recommenders to generate Recommendations  |
 | hMM | {0.0,..0.9} |In-class Majority Class Homophily |
 | hmm | {0.0,..0.9} | In-class Minority Class Homophily        |
 | fm | {0.1,0.2,0.3,0.4} | Minority Size Fraction      |
 
--> Script to Generate Heatmap Plots:
+(III) Script to Generate Heatmap Plots:
+```python generate_heatmap_centrality.py --model <<>> --reco after --group 0 --centrality betweenness ```
 
--> Script for Visualization Plots:
+An example  - 
+
+``` python generate_heatmap_centrality.py --model fw_p_1.0_q_1.0_fm_0.3 --reco after --group 0 --centrality betweenness --diff ```
+| argument      | values|description                                                                  |
+|----------------------|-------|-----------------------------------------------------------------------|
+| model | n2v_p_x_q_x_fm_x (Node2Vec) , fw_p_x_q_x_fm_x(Fairwalk), cw_alpha_x_p_x_fm_x (Crosswalk), adaptivealpha_beta_x_fm_x (Adaptive Alpha) | Add the appropriate parameters of the model you used while generating recommendations in the x space |
+| reco | before/after |before generates recommendations of DPAH (baseline) model |
+| diff | true/false | Visibility - True , Fair Betweenness Centrality (Fairness) - False  |
+| group | 0/1 | 0 - Majority , 1 - Minority |
+
+(IV)  Script for Visualization Plots:
