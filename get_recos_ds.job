@@ -1,0 +1,26 @@
+#!/bin/sh
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --partition=all
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=08:00:00
+#SBATCH --job-name=RecosWalker
+#SBATCH --output=slurm_output_%A.out
+
+
+CMD="/home/mpawar/anaconda3/envs/lr_env/bin/python generate_recos_real_ds_model_based.py --model ffw  --name tuenti --seed 42"
+
+
+$CMD
+
+# CMD="/home/mpawar/anaconda3/envs/lr_env/bin/python generate_recos_real_ds_model_based.py --model ffw  --name rice --seed 420"
+
+
+# $CMD
+
+# CMD="/home/mpawar/anaconda3/envs/lr_env/bin/python generate_recos_real_ds_model_based.py --model ffw  --name rice --seed 4200"
+
+
+# $CMD

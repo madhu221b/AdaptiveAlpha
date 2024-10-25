@@ -7,6 +7,11 @@ import pickle as pkl
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import torch
+import scipy.sparse as sp
+
+from dgl import from_networkx
+from dgl.sampling import  global_uniform_negative_sampling
 
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
@@ -18,8 +23,10 @@ def get_edge_dict(g,edges=list(),is_neg=False):
     node_attr = nx.get_node_attributes(g, "group")
     
     if is_neg is False: edges = g.edges()
-
+    
+ 
     for u, v in edges:
+        u, v = int(u), int(v)
         key = "{}->{}".format(node_attr[u],node_attr[v])    
         if key not in edge_dict:
             edge_dict[key] = [(u,v)]
@@ -28,7 +35,7 @@ def get_edge_dict(g,edges=list(),is_neg=False):
     return edge_dict
 
 
-def generate_pos_neg_links(g,seed, prop_pos=0.1, prop_neg=0.1):
+def generate_pos_neg_links(g,seed, prop_pos=0.1, prop_neg=0.1, ds="rice"):
         """
 
         Following CrossWalk's methodology to sample test edges
@@ -44,44 +51,53 @@ def generate_pos_neg_links(g,seed, prop_pos=0.1, prop_neg=0.1):
         # Select n edges at random (positive samples)
         n_edges = g.number_of_edges()
         n_nodes = g.number_of_nodes()
-        non_edges = [e for e in nx.non_edges(g)]
-       
+ 
+
+        
+        if ds in ["tuenti"]:
+            dgl_g = from_networkx(g)
+            u, v = global_uniform_negative_sampling(dgl_g,num_samples=g.number_of_edges())
+            u, v = u.unsqueeze(1), v.unsqueeze(1)
+            print(u.size(), v.size())
+            non_edges = torch.hstack((u,v))
+            print(non_edges.size())
+        else:
+            non_edges = list(nx.non_edges(g))
+    
         
         pos_edge_dict = get_edge_dict(g)
         neg_edge_dict = get_edge_dict(g,non_edges,is_neg=True)
 
 
         for edge_type, edges in pos_edge_dict.items():
-            neg_edges = neg_edge_dict[edge_type]
+            pos_edges, neg_edges = edges, neg_edge_dict[edge_type]
 
-            n_edges = len(edges)
-            npos =  int(prop_pos*n_edges)
-
-            neg = int(prop_neg*n_edges)
-            print("Edge Type: {} , total edges: {}, sampling pos links: {} , total neg edges: {}, sampling neg links: {} ".format(edge_type,n_edges,npos,len(neg_edges),neg))
-            rnd_pos_inx = _rnd.choice(n_edges, npos, replace=False)
+            pos_n_edges, neg_n_edges = len(pos_edges), len(neg_edges)
+            npos =  int(prop_pos*pos_n_edges)
+            nneg = int(prop_neg*neg_n_edges)
+            print("Edge Type: {} , total edges: {}, sampling pos links: {} , total neg edges: {}, sampling neg links: {} ".format(edge_type,pos_n_edges,npos,neg_n_edges,nneg))
+            rnd_pos_inx = _rnd.choice(pos_n_edges, npos, replace=False)
             pos_edge_list.extend([edges[ii] for ii in rnd_pos_inx])
 
 
-            rnd_neg_inx = _rnd.choice(n_edges, neg, replace=False)
+            rnd_neg_inx = _rnd.choice(neg_n_edges, nneg, replace=False)
             neg_edge_list.extend([neg_edges[ii] for ii in rnd_neg_inx])
         
         pos_edge_list, neg_edge_list = list(set(pos_edge_list)), list(set(neg_edge_list))
         print("Totally pos set: {}, total neg set: {}".format(len(pos_edge_list),len(neg_edge_list)))
         return pos_edge_list, neg_edge_list
 
-def get_train_test_graph(g, seed):
+def get_train_test_graph(g, seed, ds):
     """
     Input is graph read at t=0 (DPAH graph)
     
     Return training graph instance and list of pos-neg test edges, and true labels
     """
-    pos_edge_list, neg_edge_list = generate_pos_neg_links(g,seed,prop_pos=0.1,prop_neg=0.1)
+    pos_edge_list, neg_edge_list = generate_pos_neg_links(g,seed,prop_pos=0.1,prop_neg=0.1, ds=ds)
     g.remove_edges_from(pos_edge_list)
     edges = pos_edge_list + neg_edge_list
     labels = np.zeros(len(edges))
     labels[:len(pos_edge_list)] = 1
-    print("!! isolates :" , list(nx.isolates(g)))
     return g, edges, labels
 
 def get_cos_sims(df, test_edges):

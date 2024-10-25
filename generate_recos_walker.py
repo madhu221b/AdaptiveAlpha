@@ -41,7 +41,10 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         set_seed(seed)
 
         print("Generating Node Embeddings")
-        if "fw" in model:
+        if "ffw" in model:
+            p, q = extra_params["p"], extra_params["q"]
+            _, embeds = recommender_model(g,t,path,model="ffw",p=p,q=q)
+        elif "fw" in model:
             p, q = extra_params["p"], extra_params["q"]
             _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
         elif "n2v" in model:
@@ -94,7 +97,8 @@ def run(hMM, hmm,model,fm,extra_params):
         time = 0
         for time in iterable:
             is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-            if not is_file:
+            is_file_final, _=  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
+            if not is_file and not is_file_final:
                 print("File does not exist for time {}, creating now".format(time))
                 seed = MAIN_SEED+time+1 
                 g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
@@ -156,10 +160,10 @@ if __name__ == "__main__":
     
     start_time = time.time()
     extra_params = dict()
-    if args.model in  ["nlindlocalind"]:
+    if args.model in  ["nlindlocalind","adaptivealphafixed","fastadaptivealphatestfixed"]:
         model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
         extra_params = {"alpha":args.alpha,"beta":args.beta}
-    elif args.model in ["fw","n2v"]:
+    elif args.model in ["fw","n2v","ffw"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
     elif args.model in ["cw"]:
@@ -172,7 +176,7 @@ if __name__ == "__main__":
 
     start_idx, end_idx = args.start, args.end
     print("STARTING IDX", start_idx, ", END IDX", end_idx)
-    num_cores = 36
+    num_cores = 8
     [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
 
 

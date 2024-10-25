@@ -8,19 +8,28 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 from org.gesis.lib.cw_utils import get_upweighted_weights
-from org.gesis.lib.io import read_pickle
+from org.gesis.lib.io import read_pickle, save_gpickle
 from load_dataset import load_rice, load_dataset
 from fairwalk.fairwalk  import FairWalk
+from fastfairwalk.fairwalk  import FastFairWalk
 from deepwalk.deepwalk  import DeepWalker
 from node2vec import Node2Vec
 from walkers.adaptivealphatest import AdaptiveAlphaTest
+from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
+from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
 from walkers.adaptivealpha import AdaptiveAlpha
+from walkers.adaptivealphatestlocalid import AdaptiveAlphaTestLocalId
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
+from walkers.adaptivealphafixed import AdaptiveAlphaFixed
 from walkers.indegreewalker import InDegreeWalker
 
 walker_dict = {
 "adaptivealpha" : AdaptiveAlpha,
+"adaptivealphafixed" : AdaptiveAlphaFixed,
+"fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
 "adaptivealphatest" : AdaptiveAlphaTest,
+"fastadaptivealphatest" : FastAdaptiveAlphaTest,
+"adaptivealphatestid": AdaptiveAlphaTestLocalId,
 "nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
 "indegree": InDegreeWalker
 }
@@ -31,11 +40,24 @@ DIM = 64
 WALK_LEN = 10
 NUM_WALKS = 200
 
-
+import torch
+import dgl
+main_path = "../AdaptiveAlpha"
 
 def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
+
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    
+    dgl.seed(seed)
+    dgl.random.seed(seed)
+    torch.use_deterministic_algorithms(True)
 
 def rewiring_list(G, node, number_of_rewiring):
         nodes_to_be_unfollowed = []
@@ -57,12 +79,7 @@ def get_walks(G,model="n2v",extra_params=dict(),num_cores=8):
 
 def recommender_model_walker(G,t=0,path="",model="n2v",extra_params=dict(),num_cores=8, is_walk_viz=False):
     WalkerObj = walker_dict[model.split("_")[0]] # degree_beta_1.0 for instance
-    walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,**extra_params)
-    if is_walk_viz:
-        dict_path = path.replace(".gpickle","") + "_frac.pkl"
-        print(dict_path)
-        get_walk_plots(walkobj.walks, G,t,dict_path)
-       
+    walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,**extra_params)       
     model = walkobj.fit() 
     emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
     return model, emb_df
@@ -84,6 +101,10 @@ def recommender_model(G,t=0,path="",model="n2v",p=1,q=1,num_cores=8, is_walk_viz
             print(dict_path)
             get_walk_plots(fw_model.walks, G,t,dict_path)
         model = fw_model.fit() 
+        emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
+    elif model == "ffw":
+        ffw_model = FastFairWalk(G, dimensions=DIM, walk_length=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,p=p,q=q)
+        model = ffw_model.fit() 
         emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
     return model, emb_df
 
@@ -200,6 +221,18 @@ def get_avg_group_centrality(g,centrality_dict,group=1):
 def read_graph(file_name,seed=None):
     if "baseline" in file_name and "rice" in file_name:
         name = "rice"
+        dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
+        g = read_pickle(dsname)
+    elif "baseline" in file_name and "twitter" in file_name:
+        name = "twitter"
+        dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
+        g = read_pickle(dsname)
+    elif "baseline" in file_name and "synth2" in file_name:
+        name = "synth2"
+        dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
+        g = read_pickle(dsname)
+    elif "baseline" in file_name and "tuenti" in file_name:
+        name = "tuenti"
         dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
         g = read_pickle(dsname)
     elif "baseline" in file_name and "facebook" in file_name:
