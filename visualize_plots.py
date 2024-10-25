@@ -21,7 +21,10 @@ label_dict = {
 "baseline": "Baseline",
 "cw_p_4_alpha_0.7": "Crosswalk",
 "fw_p_1.0_q_1.0": "Fairwalk",
-"adaptivealpha_beta_2.0":"Adaptive-"+r"$\alpha$"
+"adaptivealpha_beta_2.0":"Adaptive-"+r"$\alpha$",
+"adaptivealphatest_beta_2.0":"Adaptive-"+r"$\alpha$ Local RWs",
+"adaptivealphatestid_beta_2.0":"Adaptive-"+r"$\alpha$ Local IDS"
+
 }
 
 # if os.environ.get('DISPLAY','') == '':
@@ -94,21 +97,20 @@ def print_fairness(file_name):
         with open(cent_file,"rb") as f:
               centrality_dict = pkl.load(f)
 
-    for group in groups:
+    for group in [1]:
         avg_diff =  get_diff_group_centrality(g,centrality_dict,group=group)
         fairness_dict[group] = avg_diff
     return fairness_dict
 
-def print_utility(file_name):
+def print_utility(file_name, t=29):
     prec, recall, acc, auc = 0, 0, 0, 0
     try:
   
         if os.path.exists(file_name):
             with open(file_name,"rb") as f:
                 result_dict = pkl.load(f)
-       
-            prec, recall, acc = result_dict[29].get("precision",0), result_dict[29].get("recall",0), result_dict[29].get("accuracy",0)
-            auc = result_dict[29].get("auc_score",0)
+            prec, recall, acc = result_dict[t].get("precision",0), result_dict[t].get("recall",0), result_dict[t].get("accuracy",0)
+            auc = result_dict[t].get("auc_score",0)
         else:
             prec, recall, acc, auc = 0, 0, 0, 0
     except Exception as e:
@@ -210,7 +212,7 @@ def check_avg_indegree(fm=0.3):
         pr_m, pr_M = alpha_unno_m/sum_pr, alpha_unno_M/sum_pr
         print("alpha pr m : {}, alpha pr M: {}".format(pr_m,pr_M)) 
 
-def plot_utility_metrics(ds="rice",models=[]):
+def plot_utility_metrics(ds="rice",models=[],t=29):
     # models = ["nonlocaladaptivealpha_beta_2.0", "indegree_beta_2.0",  "indegree_beta_-2.0", "indegree_beta_0.0","fw_p_1.0_q_1.0"]
     # models = ["nlindlocalind_alpha_0.0_beta_2.0","nlindlocalind_alpha_0.3_beta_2.0","nlindlocalind_alpha_0.5_beta_2.0","nlindlocalind_alpha_0.7_beta_2.0","nlindlocalind_alpha_1.0_beta_2.0", "fw_p_1.0_q_1.0"]
     labels = [label_dict.get(model, model) for model in models]
@@ -227,7 +229,7 @@ def plot_utility_metrics(ds="rice",models=[]):
         pre_list, recall_list, auc_list = [],[],[]
         for seed in seed_list:
             file_name = main_path+"utility/model_{}_name_{}/seed_{}/_name{}.pkl".format(model,ds,seed,ds)
-            pre, recall, acc, auc = print_utility(file_name)
+            pre, recall, acc, auc = print_utility(file_name, t=t)
             pre_list.append(pre)
             recall_list.append(recall)
             auc_list.append(auc)
@@ -262,7 +264,7 @@ def plot_utility_metrics(ds="rice",models=[]):
     ax.set_xticks(x + width, labels)
     ax.legend(loc='upper right', ncols=3)
     ax.set_ylim(0, 1.1)
-    fig.savefig("utility_barplot_{}.pdf".format(ds),bbox_inches='tight')
+    fig.savefig("utility_barplot_{}_t_{}.pdf".format(ds,t),bbox_inches='tight')
 
 def plot_utility_metrics_syn(syn_ds,models,fm=0.3):
     labels = [label_dict.get(model, model) for model in models]
@@ -365,7 +367,7 @@ def plot_fair_metrics(ds="rice",models=[],t=29):
     ax.legend(loc='upper left', ncols=3)
     if ds == "rice": llim, uplim = 0,0.004
     elif ds == "twitter_climate": llim, uplim = 0,0.005
-    else: llim, uplim = 0, 0.0025
+    else: llim, uplim = -0.006, 0.006
     ax.set_ylim(llim,uplim)
     fig.savefig("vis_barplot_{}_{}.pdf".format(ds,t),bbox_inches='tight')
 
@@ -448,10 +450,11 @@ def plot_fair_metrics_v2(ds="rice",models=[],t=29):
                 std_dict[key] = list()
             plot_dict[key].append(avg_fair)
             std_dict[key].append(std_fair)
-  
+    
+
     for label, val in plot_dict.items():
             offset = width * multiplier
-            rects = ax.bar(x + offset, val, width, label=label)
+            rects = ax.bar(x + offset, val, width, color="orange",label=label)
             ax.errorbar(x + offset, val,std_dict[label], fmt='.', color='Black', elinewidth=2,capthick=10,errorevery=1, alpha=0.5, ms=4, capsize = 2)
             # ax.bar_label(rects, padding=3)
             multiplier += 1
@@ -460,9 +463,12 @@ def plot_fair_metrics_v2(ds="rice",models=[],t=29):
     ax.set_ylabel('Fair Betweenness Centrality')
     ax.set_xticks(x + width, labels)
     ax.legend(loc='upper left', ncols=3)
-    if ds == "rice": llim, uplim = -0.004,0.004
-    elif ds == "twitter_climate": llim, uplim = -0.005,0.005
-    else: llim, uplim = -0.0025, 0.0025
+    # if ds == "rice": llim, uplim = -0.004,0.004
+    if ds in "rice": llim, uplim = 0, 0.004
+    elif ds == "twitter": llim, uplim = -0.00007,0.00007
+    else: llim, uplim =  -0.008, 0.008
+
+    ax.axhline(y=0, color="black",linewidth=.7)
     ax.set_ylim(llim,uplim)
     fig.savefig("fair_barplot_{}_{}.pdf".format(ds,t),bbox_inches='tight')
 
@@ -618,7 +624,7 @@ def plot_heg_hog(hMM,hmm):
     plt.close(fig)    # close the figure window
         
 
-def draw_graph(file_name,hMM=0.0,hmm=0.0):
+def draw_graph(hMM=0.0,hmm=0.0):
 
     np.random.seed(42)
     edgecolor = '#c8cacc'
@@ -629,9 +635,7 @@ def draw_graph(file_name,hMM=0.0,hmm=0.0):
     colors = {'min':'#ec8b67', 'maj':'#6aa8cb'}
     
     fig, ax = plt.subplots(1,1)
-    main_directory = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/"
-    graph_file = os.path.join(main_directory, file_name)
-    graph_file = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/DPAH_fm_0.3/DPAH-N55-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
+    graph_file = main_path+"DPAH_fm_0.3/DPAH-N30-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
     g = read_graph(graph_file)
     node_attr = nx.get_node_attributes(g, "group")
 
@@ -741,6 +745,7 @@ def get_statistical_imparity_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=
 
     fig, ax = plt.subplots( nrows=1, ncols=1 )  # create figure & 1 axis
     for ds in ["rice", "facebook"]:
+        print("Dataset: ", ds)
         mean_list, std_list = list(), list()
         for model in models:
             model_sp = list()
@@ -750,6 +755,7 @@ def get_statistical_imparity_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=
             mean_sp, var_sp = np.mean(model_sp), np.var(model_sp)
             mean_list.append(mean_sp)
             std_list.append(var_sp)
+            print("Mean SP : {:2e} , Var SP : {:2e} for Model:  {}".format(mean_sp, var_sp, model))
         
         ax.errorbar([label_dict[_] for _ in models], mean_list, label=ds, marker="o", yerr=std_list)
 
@@ -770,6 +776,7 @@ def get_er_network_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
     fig, ax = plt.subplots( nrows=1, ncols=1 )  # create figure & 1 axis
     allvals = list()
     for ds in ["rice","facebook"]:
+        print("DS: ", ds)
         mean_list, std_list = list(), list()
         for model in models:
             model_er = list()
@@ -779,6 +786,7 @@ def get_er_network_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
             model_er = np.array(model_er)/10**4
     
             mean_er, var_er = np.mean(model_er), np.var(model_er)
+            print("Mean ER : {:2e} , Var ER : {:2e} for Model:  {}".format(mean_er, var_er, model))
             mean_list.append(mean_er)
             allvals.extend(mean_list)
             std_list.append(var_er)
@@ -799,6 +807,7 @@ def get_disparity_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
 
     fig, ax = plt.subplots( nrows=1, ncols=1 )  # create figure & 1 axis
     for ds in ["rice", "facebook"]:
+        print("Dataset: ", ds)
         mean_list, std_list = list(), list()
         for model in models:
             model_dis = list()
@@ -808,6 +817,7 @@ def get_disparity_all(models, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=""):
             mean_dis, var_dis = np.mean(model_dis), np.var(model_dis)
             mean_list.append(mean_dis)
             std_list.append(var_dis)
+            print("Mean DIS : {:2e} , Var DIS : {:2e} for Model:  {}".format(mean_dis, var_dis, model))
         
         ax.errorbar([label_dict[_] for _ in models], mean_list, label=ds, marker="o", yerr=std_list)
 
@@ -840,14 +850,115 @@ def plot_betn_vs_indegree(model,hMM,hmm):
     fig.savefig('scatter.pdf'.format(hMM,hmm),bbox_inches='tight')   # save the figure to file
     plt.close(fig)   
 
+def get_line_plot_t_vs_utility(ds, models):
+    fig, ax = plt.subplots(nrows=1, ncols=1) 
+    
+
+    for model in models:
+        xs,ys,y_error = list(), list(), list()
+
+        for i, t in enumerate(range(T)):
+            auc_list = []
+            for seed in MAIN_SEEDS:
+                file_name = main_path+"utility/model_{}_name_{}/seed_{}/_name{}.pkl".format(model,ds,seed,ds)
+                _,_,_, auc = print_utility(file_name,t=t)
+                auc_list.append(auc)
+            
+            mean_auc, std_auc = np.mean(auc_list), np.std(auc_list)
+            xs.append(i)
+            ys.append(mean_auc)
+            y_error.append(std_auc)
+            
+        ax.errorbar(xs,ys, label=label_dict[model], marker="o", yerr = y_error)
+    
+
+    
+    # idxs = [_ for _ in range(len(dict_))]
+    # ax.set_xticks(idxs)
+    ax.set_xlabel("Timesteps")
+    ax.set_ylabel("AUC")
+    ax.set_ylim(0, 1.0)
+    ax.legend(loc = "lower right",bbox_to_anchor=(0.7,0))
+    fig.savefig('plots/time_vs_utility_ds_{}.pdf'.format(ds),bbox_inches='tight')   # save the figure to file
+    plt.close(fig)    # close the figure window
+
+def get_new_recos_ds(ds, models):
+    markerstyle = {models[0]:"o",models[1]:"^"}
+    colors = {"0->0":"orange",
+              "0->1": "b",
+              "1->1": "r",
+              "1->0":"g"}
+
+    fig, ax = plt.subplots(nrows=1, ncols=1) 
+    for model in models:
+        xs,ys,y_error = list(), dict(), dict()
+        for i, time in enumerate(range(T)):
+
+            reco_dict = dict()
+            for seed in MAIN_SEEDS:
+                if time == 0:
+                    prev_gpath = main_path+"data/{}/{}_{}.gpickle".format(ds,ds,seed)
+                else: 
+                    prev_gpath = os.path.join(main_path,"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,time-1))
+
+                curr_gpath = os.path.join(main_path,"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,time))
+            
+                g_prev = read_graph(prev_gpath)
+                g_curr = read_graph(curr_gpath)
+            
+                node_attrs = nx.get_node_attributes(g_curr,"group")
+                recos = list(set(g_curr.edges())-set(g_prev.edges())) # get the total recommendations
+                assert len(recos) == g_curr.number_of_nodes()
+                # count the number of recos by identity
+                count_dict = dict()
+                for (u,v) in recos:
+                    label = "{}->{}".format(node_attrs[u],node_attrs[v])
+                    if label not in count_dict: count_dict[label] = 0
+                    count_dict[label] += 1
+
+                sum_ = sum(count_dict.values())
+                for k,v in count_dict.items():
+                    if k not in reco_dict: reco_dict[k] = list()
+                    reco_dict[k].append((v/sum_))
+
+            # aggregate
+            xs.append(i)
+            for k,v in reco_dict.items():
+                if k not in ys: ys[k] = list()
+                if k not in y_error: y_error[k] = list()
+                ys[k].append(np.mean(v))
+                y_error[k].append(np.std(v))
+
+
+        for i, (k, v) in enumerate(ys.items()):
+           ax.errorbar(xs,v, label=k, marker=markerstyle[model], yerr = y_error[k],color=colors[k])    
+    
+    dummy_lines = []
+    for linestyle in ["-","--"]:
+        dummy_lines.append(ax1.plot([],[], c="black")[0])
+
+    ax.set_xlabel("Timesteps")
+    ax.set_ylabel("Percent of new recommendations")
+    ax.legend(loc = "lower right",bbox_to_anchor=(1,0.7))
+    ax.set_ylim(0, 1.0)
+    fig.savefig('plots/time_vs_newperc_ds_{}.pdf'.format(ds),bbox_inches='tight')   # save the figure to file
+    plt.close(fig)    # close the figure window  
+                
+               
+
+        
+
+#
 if __name__ == "__main__":
     # ds = "facebook_locale" "cw_p_4_alpha_0.7",
-    # ds = "rice"
-    models = ["baseline","n2v_p_1.0_q_1.0","fw_p_1.0_q_1.0","cw_p_4_alpha_0.7","nlindlocalind_alpha_1.0_beta_2.0","adaptivealpha_beta_2.0"]
-    # t = 29
+    ds = "rice"
+    models = ["baseline","ffw_p_1.0_q_1.0","adaptivealphatest_beta_2.0", "fastadaptivealphatest_beta_2.0"] # "adaptivealphatest_beta_2.0","adaptivealphatestid_beta_2.0"]
+    t = 29
     # plot_fair_metrics(ds=ds,models=models,t=t)
-    # plot_fair_metrics_v2(ds=ds,models=models,t=t)
-    # plot_utility_metrics(ds=ds,models=models[1:])
+    plot_fair_metrics_v2(ds=ds,models=models,t=t)
+    plot_utility_metrics(ds=ds,models=models[1:],t=t)
+    # get_line_plot_t_vs_utility(ds, models[1:])
+    # get_new_recos_ds(ds, [models[1],models[2]])
     # # plot_heg_hog(hMM=0.1,hmm=1.0)
     # # plot_heg_hog(hMM=0.8,hmm=0.3)
     # # plot_heg_hog(hMM=0.6,hmm=1.0)
@@ -860,8 +971,8 @@ if __name__ == "__main__":
     # name = "rice"
 
     # models_sp = ["n2v_p_1.0_q_1.0","fw_p_1.0_q_1.0","cw_p_4_alpha_0.7","adaptivealpha_beta_2.0"]
-    # # get_statistical_imparity_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
-    # # get_er_network_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
+    # get_statistical_imparity_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="rice")
+    # get_er_network_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
     # get_disparity_all(models_sp, use_syn_ds=False, hMM=0.0, hmm=0.0, ds="facebook")
 
     # model = "fw_p_1.0_q_1.0"
@@ -870,14 +981,16 @@ if __name__ == "__main__":
     # model = "cw_p_4_alpha_0.7"
     # # get_er_nwlevel(model=model,use_syn_ds=use_syn_ds,hMM=0.2,hmm=0.8,ds=name)
 
-    hMM, hmm = 0.2, 0.8
-    # filename = "/home/mpawar/AdaptiveAlpha/adaptivealpha_beta_2.0_fm_0.3/adaptivealpha_beta_2.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(hMM,hmm)
-    filename = "/home/mpawar/AdaptiveAlpha/DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
-    # filename = "/home/mpawar/AdaptiveAlpha/fw_p_1.0_q_1.0_fm_0.3/fw_p_1.0_q_1.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(hMM,hmm)
-    plot_kde_v2(filename)
+    # hMM, hmm = 0.2, 0.8
+    # # filename = "/home/mpawar/AdaptiveAlpha/adaptivealpha_beta_2.0_fm_0.3/adaptivealpha_beta_2.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(hMM,hmm)
+    # filename = "/home/mpawar/AdaptiveAlpha/DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
+    # # filename = "/home/mpawar/AdaptiveAlpha/fw_p_1.0_q_1.0_fm_0.3/fw_p_1.0_q_1.0-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(hMM,hmm)
+    # plot_kde_v2(filename)
      
     # model = "adaptivealpha_beta_2.0"
     # hMM, hmm = 0.2, 0.8
     # plot_betn_vs_indegree(model,hMM,hmm)
+
+    # draw_graph(hMM=0.2,hmm=0.8)
 
 

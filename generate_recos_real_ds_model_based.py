@@ -35,7 +35,10 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         set_seed(seed)
 
         print("Generating Node Embeddings")
-        if "fw" in model:
+        if "ffw" in model:
+            p, q = extra_params["p"], extra_params["q"]
+            _, embeds = recommender_model(g,t,path,model="ffw",p=p,q=q)
+        elif "fw" in model:
             p, q = extra_params["p"], extra_params["q"]
             _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
         elif "n2v" in model:
@@ -76,15 +79,14 @@ def run(name,model,main_seed,extra_params):
         print("File exists for model: {}, name: {}".format(model,name))
         return 
     
-    # Initial Graph is read
-    g = load_dataset(name)
 
     # Sample testing edges & create training instance g object
-    print("Total edges in the graph: ", g.number_of_edges())
     g_train_path = "./data/{}/{}_{}.gpickle".format(name,name,main_seed)
     test_dict_path = "./data/{}/{}_{}_dict.gpickle".format(name,name,main_seed)
     if not os.path.exists(g_train_path) or not os.path.exists(test_dict_path):
-        g_train, test_edges, true_labels = get_train_test_graph(g.copy(), main_seed)
+        g = load_dataset(name)     # Initial Graph is read
+        print("Total edges in the graph: ", g.number_of_edges())
+        g_train, test_edges, true_labels = get_train_test_graph(g.copy(), main_seed,ds=name)
         io.save_gpickle(g_train, "./data/{}/{}_{}.gpickle".format(name,name,main_seed))
         io.save_pickle({"test_edges":test_edges,"true_labels":true_labels}, "./data/{}/{}_{}_dict.gpickle".format(name,name,main_seed))
     else:
@@ -185,7 +187,7 @@ if __name__ == "__main__":
     
     start_time = time.time()
     extra_params = dict()
-    if args.model in ["fw","n2v"]:
+    if args.model in ["fw","ffw","n2v"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
     elif args.model in ["cw"]:

@@ -68,7 +68,12 @@ def get_diff_grid(files,model,centrality,group):
 
         centrality_2 = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] != group]
         val_2 = np.mean(centrality_2)
-        grid[hmm_idx][hMM_idx] = (val_1-val_2)
+        diff = (val_1-val_2)
+        grid[hmm_idx][hMM_idx] = diff
+        # if hMM == "0.8" and hmm == "0.2":
+        #      print("hMM: {}, hmm: {}, betn: {}".format(hMM, hmm,diff))
+        # if hMM == "0.2" and hmm == "0.8":
+        #      print("hMM: {}, hmm: {}, betn: {}".format(hMM, hmm,diff))
     return grid
 
 
@@ -107,12 +112,12 @@ def get_grid(files, model, centrality, group=1):
 
         cent_group = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == group]
         avg_val = np.mean(cent_group)
-        print("hMM: {}, hmm: {}, betn: {}".format(hMM, hmm,avg_val))
+ 
         grid[hmm_idx][hMM_idx] = avg_val
     return grid
 
     
-def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=1):
+def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=1, is_display=False):
     all_files = os.listdir(file_path)
     if "fm" in model and reco_type == "after":
          graph_files = [os.path.join(file_path,file_name) for file_name in all_files if "netmeta" not in file_name and ".gpickle" in file_name and "t_29" in file_name]
@@ -153,7 +158,28 @@ def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=
     # cmap =  plt.cm.coolwarm
     heatmap = heatmap[:-1,:-1]
     hmm_ticks, hMM_ticks = hmm_ticks[:-1], hMM_ticks[:-1]
-    ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
+    if is_display:
+        ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
+
+        
+        ax.invert_yaxis()
+
+        ax.set_xlabel("Homophily for Minority Class "+ r"($h_{mm}$)")
+        ax.set_ylabel("Homophily for Majority Class "+ r"($h_{MM}$)")
+
+        fig = ax.get_figure()
+        fig.savefig(plot_directory+"/{}_{}_{}_diff_{}_group_{}.pdf".format(reco_type,model,centrality,diff,group),bbox_inches='tight')
+        ax.clear()
+    return heatmap
+
+def generate_diff_heatmap(h1,h2):
+    hmm_ticks = [np.round(hmm,2) for hmm in hmm_list]
+    hMM_ticks = [np.round(hMM,2) for hMM in hMM_list]
+    hmm_ticks, hMM_ticks = hmm_ticks[:-1], hMM_ticks[:-1]
+    cmap = plt.cm.coolwarm
+    diff = h1-h2
+    vmin, vmax = -0.002, 0.002
+    ax = sns.heatmap(diff, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
 
     
     ax.invert_yaxis()
@@ -162,10 +188,16 @@ def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=
     ax.set_ylabel("Homophily for Majority Class "+ r"($h_{MM}$)")
 
     fig = ax.get_figure()
-    model = model.replace("/seed_42","")
-    fig.savefig(plot_directory+"/{}_{}_{}_diff_{}_group_{}.pdf".format(reco_type,model,centrality,diff,group),bbox_inches='tight')
-    return heatmap
 
+    
+    fig.savefig(plot_directory+"/_diff_group.pdf",bbox_inches='tight')
+
+def compare_heatmap(heatmap1, heatmap2, model1, model2):
+
+    compare = np.abs(heatmap2) < np.abs(heatmap1)
+    val =  np.sum(compare)
+    totalconfigs = heatmap1.shape[0]*heatmap1.shape[1]
+    print("{} has improvement over {} in {}/{} configs".format(model2,model1,val,totalconfigs))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -176,5 +208,14 @@ if __name__ == "__main__":
     parser.add_argument('--diff', action='store_true')
     args = parser.parse_args()
     path = main_path+"{}".format(args.model)
-    generate_heatmap(path, args.model, args.reco, args.centrality, args.diff, args.group) 
+    generate_heatmap(path, args.model, args.reco, args.centrality, args.diff, args.group, is_display=True) 
+
+    #  ffw_p_1.0_q_1.0_fm_0.3, adaptivealphatest_beta_2.0_fm_0.3
+    # model1, model2 = "fastadaptivealphatestfixed_alpha_0.7_beta_2.0_fm_0.3", args.model
+    # path1, path2 = main_path+"{}".format(model1), main_path+"{}".format(model2)
+    # h1 = generate_heatmap(path1, model1, args.reco, args.centrality, args.diff, args.group, is_display=False)
+    # h2 = generate_heatmap(path2, model2, args.reco, args.centrality, args.diff, args.group, is_display=False)
+    # compare_heatmap(h1,h2, model1, model2)
+    # generate_diff_heatmap(h1,h2)
+
     
