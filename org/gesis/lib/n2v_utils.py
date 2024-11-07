@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import pickle as pkl
 import networkx as nx
+import torch
+from torchmetrics.functional import pairwise_cosine_similarity
 from sklearn.metrics.pairwise import cosine_similarity
 
 
@@ -17,6 +19,7 @@ from node2vec import Node2Vec
 from walkers.adaptivealphatest import AdaptiveAlphaTest
 from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
 from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
+from walkers.fastfairwalk import FastFairWalk
 from walkers.adaptivealpha import AdaptiveAlpha
 from walkers.adaptivealphatestlocalid import AdaptiveAlphaTestLocalId
 from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
@@ -27,6 +30,7 @@ walker_dict = {
 "adaptivealpha" : AdaptiveAlpha,
 "adaptivealphafixed" : AdaptiveAlphaFixed,
 "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
+"ffw": FastFairWalk,
 "adaptivealphatest" : AdaptiveAlphaTest,
 "fastadaptivealphatest" : FastAdaptiveAlphaTest,
 "adaptivealphatestid": AdaptiveAlphaTestLocalId,
@@ -52,12 +56,13 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.deterministic =  False
         torch.backends.cudnn.benchmark = False
     
-    dgl.seed(seed)
-    dgl.random.seed(seed)
-    torch.use_deterministic_algorithms(True)
+    # dgl.seed(seed)
+   #  dgl.random.seed(seed)
+    # torch.set_deterministic(True) 
+    # torch.use_deterministic_algorithms(True)
 
 def rewiring_list(G, node, number_of_rewiring):
         nodes_to_be_unfollowed = []
@@ -77,12 +82,19 @@ def get_walks(G,model="n2v",extra_params=dict(),num_cores=8):
     walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,**extra_params)
     return walkobj.walks
 
-def recommender_model_walker(G,t=0,path="",model="n2v",extra_params=dict(),num_cores=8, is_walk_viz=False):
+def recommender_model_walker(G,t=0,model="n2v",extra_params=dict(),num_cores=8, is_walk_viz=False):
     WalkerObj = walker_dict[model.split("_")[0]] # degree_beta_1.0 for instance
     walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,**extra_params)       
     model = walkobj.fit() 
-    emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
-    return model, emb_df
+
+    # emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
+    embedding_list = np.array([model.wv.get_vector(str(n)) for n in range(G.number_of_nodes())])
+    embeddings = torch.from_numpy(embedding_list)
+    print("Node embeddings are obtained")
+    # embeddings = walkobj.fit()
+    # emb_df = (pd.DataFrame([embeddings[n] for n in G.nodes()], index = G.nodes))
+    # return model, embeddings
+    return None, embeddings
 
 
 def recommender_model(G,t=0,path="",model="n2v",p=1,q=1,num_cores=8, is_walk_viz=False):
@@ -102,10 +114,10 @@ def recommender_model(G,t=0,path="",model="n2v",p=1,q=1,num_cores=8, is_walk_viz
             get_walk_plots(fw_model.walks, G,t,dict_path)
         model = fw_model.fit() 
         emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
-    elif model == "ffw":
-        ffw_model = FastFairWalk(G, dimensions=DIM, walk_length=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,p=p,q=q)
-        model = ffw_model.fit() 
-        emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
+    # elif model == "ffw":
+    #     ffw_model = FastFairWalk(G, dimensions=DIM, walk_length=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,p=p,q=q)
+    #     model = ffw_model.fit() 
+    #     emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
     return model, emb_df
 
 def recommender_model_cw(G, t=0, path="", p=1, alpha=0.5, num_cores=8):
@@ -146,6 +158,64 @@ def get_top_recos(g, embeddings, u, N=1):
     print("len(results) in recos method: ", len(results))   
     return results 
 
+
+def get_top_recos_v2(g, embeddings, all_nodes, N=1):
+    cosine_sim = pairwise_cosine_similarity(embeddings, embeddings)
+    print("Obtained Cosine Similarity Values")
+    results = []
+    print("Finding top:{} recos based on cos-sim".format(N))
+    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+    np.fill_diagonal(adj_matrix, 1)
+    print("creating a torch matrix")
+
+    MAX_LIMIT = 5000
+    start = 0
+    end = len(all_nodes)
+    while True:
+        if start >= end: break
+        end_lim = start + MAX_LIMIT
+        if end_lim >= end: end_lim = end
+        print("Spanning nodes from : {} to  {}".format(start, end_lim))
+        cosine_sim_sub = cosine_sim[start:end_lim, :]
+      
+        with torch.no_grad():
+            adj_matrix_torch = torch.tensor(adj_matrix[start:end_lim, :])
+        adj_matrix_torch[adj_matrix_torch == 1.0] = float(-1000)
+        adj_matrix_torch += cosine_sim_sub
+       
+        _, tgt_nodes = torch.topk(adj_matrix_torch, N, dim=1, sorted=False)
+
+        src_nodes = list(range(start, end_lim, 1))
+        for src_node, tgts in zip(src_nodes, tgt_nodes):
+            results.extend([(src_node, int(tgt)) for tgt in tgts])
+    
+        
+        start += MAX_LIMIT
+ 
+    #         # adj_matrix = torch.tensor(adj_matrix, device="cpu")
+    #         # new_diags = adj_matrix.diagonal() + 1.0
+    #         # adj_matrix.diagonal().copy_(new_diags)
+    #         # del new_diags
+    #         # adj_matrix[adj_matrix == 1.0] = float(-1000)
+    #         # adj_matrix += cosine_sim
+    #         # del cosine_sim
+    #         # _, tgt_nodes = torch.topk(adj_matrix, N, dim=1)
+    #         # del adj_matrix
+    #         # for i, tgts in enumerate(tgt_nodes):
+    #         #      results.extend([(i,int(tgt)) for tgt in tgts])
+ 
+    # for src_node in all_nodes:
+       
+    #     other_nodes = torch.tensor([n for n in all_nodes if n not in list(g.adj[src_node]) + [src_node]])
+    #     sims = cosine_sim[src_node, other_nodes]
+    #     _, tgt_idxs = torch.topk(sims, N)
+    #     tgt_nodes = other_nodes[tgt_idxs]
+
+    #     for tgt in tgt_nodes:
+    #          results.append((src_node, int(tgt)))
+
+    print("len(results) in recos method: ", len(results))   
+    return results, cosine_sim
 
 def get_walk_plots(walks, g, t,dict_path):
     try:
