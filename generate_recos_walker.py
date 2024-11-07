@@ -9,7 +9,7 @@ import pickle
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
-from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker,recommender_model, get_top_recos, recommender_model_cw, read_graph
+from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, read_graph
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -41,12 +41,12 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         set_seed(seed)
 
         print("Generating Node Embeddings")
-        if "ffw" in model:
+        if "fw" in model and "ffw" not in model:
             p, q = extra_params["p"], extra_params["q"]
             _, embeds = recommender_model(g,t,path,model="ffw",p=p,q=q)
-        elif "fw" in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
+        # elif "fw" in model:
+        #     p, q = extra_params["p"], extra_params["q"]
+        #     _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
         elif "n2v" in model:
             p, q = extra_params["p"], extra_params["q"]
             _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
@@ -54,61 +54,68 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
             p_cw, alpha_cw = extra_params["p_cw"], extra_params["alpha_cw"]
             _, embeds = recommender_model_cw(g, t, path, p=p_cw, alpha=alpha_cw)
         else:
-            _, embeds = recommender_model_walker(g,t,path,model=model,extra_params=extra_params)
-        print("Getting Link Recommendations from {} Model".format(model))
-        u = g.nodes()
-        recos = get_top_recos(g,embeds, u) 
+            _, embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
+        print("Getting Link Recommendations from {} Model ".format(model))
+        all_nodes = g.nodes()
+        recos, cossim = get_top_recos_v2(g,embeds, all_nodes) 
+        # recos = get_top_recos(g, embeds, all_nodes)
+        print("Recommendations Obtained")
         new_edges = 0
+        removed_edges, added_edges = list(), list()
         for i,(u,v) in enumerate(recos):
             seed += i
             set_seed(seed)
             if not g.has_edge(u,v):
                edges_to_be_removed = rewiring_list(g, u, 1)
-               g.remove_edges_from(edges_to_be_removed) # deleting previously existing links
+               removed_edges.extend(edges_to_be_removed)
+               added_edges.append((u,v))
+               # g.remove_edges_from(edges_to_be_removed) # deleting previously existing links
                new_edges += 1
-               g.add_edge(u,v)
+               # g.add_edge(u,v)
             seed += 1
+        g.remove_edges_from(removed_edges)
+        g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
-        return g
+        return g, embeds, cossim
 
 
 def run(hMM, hmm,model,fm,extra_params):
-    try:  
-        # Setting seed
-        np.random.seed(MAIN_SEED)
-        random.seed(MAIN_SEED)
-        folder_path = main_path+"/{}_fm_{}".format(model,fm)
-        new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
-        new_path = os.path.join(folder_path, new_filename) 
-        if os.path.exists(new_path): # disabling this condition
-            print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
-            return 
-        print("hMM: {}, hmm: {}".format(hMM, hmm))
+    # try:  
+    # # Setting seed
+    np.random.seed(MAIN_SEED)
+    random.seed(MAIN_SEED)
+    folder_path = main_path+"/{}_fm_{}".format(model,fm)
+    new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
+    new_path = os.path.join(folder_path, new_filename) 
+    if os.path.exists(new_path): # disabling this condition
+        print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
+        return 
+    print("hMM: {}, hmm: {}".format(hMM, hmm))
 
-        # read the base graph from DPAH folder
-        old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
-        DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
-        g = read_graph(os.path.join(DPAH_path,old_filename))
+    # read the base graph from DPAH folder
+    old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
+    DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
+    g = read_graph(os.path.join(DPAH_path,old_filename))
 
-        node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
-        nx.set_node_attributes(g, node2group, 'group')
+    node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
+    nx.set_node_attributes(g, node2group, 'group')
 
-        iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
-        time = 0
-        for time in iterable:
-            is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-            is_file_final, _=  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
-            if not is_file and not is_file_final:
-                print("File does not exist for time {}, creating now".format(time))
-                seed = MAIN_SEED+time+1 
-                g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
-                g = g_updated
-                save_metadata(g, hMM, hmm, model,fm,t=time)
-            else:
-                print("File exists for time {}, loading it... ".format(time))
-                g = g_obj
-    except Exception as err:
-        print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
+    iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
+    time = 0
+    for time in iterable:
+        is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
+        is_file_final, _=  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
+        if not is_file and not is_file_final:
+            print("File does not exist for time {}, creating now".format(time))
+            seed = MAIN_SEED+time+1 
+            g_updated, _, _ = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g = g_updated
+            save_metadata(g, hMM, hmm, model,fm,t=time)
+        else:
+            print("File exists for time {}, loading it... ".format(time))
+            g = g_obj
+    # except Exception as err:
+    #     print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
 
 
 def is_file_exists(hMM, hmm, model,fm,t):

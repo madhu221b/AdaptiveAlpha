@@ -117,7 +117,7 @@ def get_grid(files, model, centrality, group=1):
     return grid
 
     
-def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=1, is_display=False):
+def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=1, is_display=False, labels=None):
     all_files = os.listdir(file_path)
     if "fm" in model and reco_type == "after":
          graph_files = [os.path.join(file_path,file_name) for file_name in all_files if "netmeta" not in file_name and ".gpickle" in file_name and "t_29" in file_name]
@@ -138,7 +138,7 @@ def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=
     hmm_ticks = [np.round(hmm,2) for hmm in hmm_list]
     hMM_ticks = [np.round(hMM,2) for hMM in hMM_list]
     if centrality == "betweenness":
-        fm = model.split("fm_")[-1].replace("_imp","").strip()
+        fm = model.split("fm_")[-1].replace("_best","").strip()
         if "n2v" in model: fm = "0.3"
         llim, uplim = lim_dict[fm].get("llim",0), lim_dict[fm].get("ulim",0.004)
   
@@ -159,9 +159,10 @@ def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=
     heatmap = heatmap[:-1,:-1]
     hmm_ticks, hMM_ticks = hmm_ticks[:-1], hMM_ticks[:-1]
     if is_display:
-        ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
-
-        
+        if labels is not None:
+             ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
+        else:
+            ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax,annot = labels, fmt='')
         ax.invert_yaxis()
 
         ax.set_xlabel("Homophily for Minority Class "+ r"($h_{mm}$)")
@@ -198,6 +199,7 @@ def compare_heatmap(heatmap1, heatmap2, model1, model2):
     val =  np.sum(compare)
     totalconfigs = heatmap1.shape[0]*heatmap1.shape[1]
     print("{} has improvement over {} in {}/{} configs".format(model2,model1,val,totalconfigs))
+    return compare
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -211,11 +213,15 @@ if __name__ == "__main__":
     generate_heatmap(path, args.model, args.reco, args.centrality, args.diff, args.group, is_display=True) 
 
     #  ffw_p_1.0_q_1.0_fm_0.3, adaptivealphatest_beta_2.0_fm_0.3
-    # model1, model2 = "fastadaptivealphatestfixed_alpha_0.7_beta_2.0_fm_0.3", args.model
+    # model1, model2 = "ffw_p_1.0_q_1.0_fm_0.3", args.model
     # path1, path2 = main_path+"{}".format(model1), main_path+"{}".format(model2)
     # h1 = generate_heatmap(path1, model1, args.reco, args.centrality, args.diff, args.group, is_display=False)
     # h2 = generate_heatmap(path2, model2, args.reco, args.centrality, args.diff, args.group, is_display=False)
-    # compare_heatmap(h1,h2, model1, model2)
-    # generate_diff_heatmap(h1,h2)
+    # compare = compare_heatmap(h1,h2, model1, model2)
+    # ts = compare.astype(str)
+    # ts[ts ==  "True"] = ""
+    # ts[ts ==  "False"] = "o"
+    # h2 = generate_heatmap(path2, model2, args.reco, args.centrality, args.diff, args.group, is_display=True,labels=ts)
+
 
     

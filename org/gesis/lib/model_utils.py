@@ -93,8 +93,10 @@ def get_train_test_graph(g, seed, ds):
     
     Return training graph instance and list of pos-neg test edges, and true labels
     """
+    print("pre split nx.isolates(g): ",  len(list(nx.isolates(g))), g.number_of_nodes())
     pos_edge_list, neg_edge_list = generate_pos_neg_links(g,seed,prop_pos=0.1,prop_neg=0.1, ds=ds)
     g.remove_edges_from(pos_edge_list)
+    print("~~~~~post split nx.isolates(g): ", len(list(nx.isolates(g))), g.number_of_nodes())
     edges = pos_edge_list + neg_edge_list
     labels = np.zeros(len(edges))
     labels[:len(pos_edge_list)] = 1
@@ -130,7 +132,7 @@ def get_model_metrics(g,test_edges,y_true):
     print("tn: {},  fp:{},  fn: {},  tp: {}".format(tn, fp, fn, tp))
     return precision, recall, accuracy
 
-def get_model_metrics_v2(embeddings,test_edges,y_true):
+def get_model_metrics_v2(embeddings,cos_sim,test_edges,y_true):
     """
     Computes Precision & Recall
     - Precision: Quantifies the number of correct positive predictions made.
@@ -140,7 +142,13 @@ def get_model_metrics_v2(embeddings,test_edges,y_true):
 
     
     """
-    y_pred = get_cos_sims(embeddings,test_edges)
+    print("Calculating auc scores for test edges")
+    y_pred = list()
+    for (u,v) in test_edges:
+        val = cos_sim[u,v]
+        y_pred.append(float(val))
+
+    # y_pred = get_cos_sims(embeddings,test_edges)
     auc_score = roc_auc_score(y_true,y_pred)
     print("auc score: ", auc_score)
     
