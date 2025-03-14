@@ -23,38 +23,57 @@ def get_edge_dict(recos, g):
         reco_dict[(u,v)] += 1
     return reco_dict, count_dict
 
+# def get_statistical_imparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None, seed=42):
+#     mean_sp = list()
+#     for t in range(0,T):
+
+#         if use_syn_ds:
+#             if t == 0:
+#                 prev_gpath = MAIN_PATH+"DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
+#             else: 
+#                 prev_gpath = os.path.join(MAIN_PATH,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,t-1))
+
+#             curr_gpath = os.path.join(MAIN_PATH,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,t))
+#         else: # use real dataset
+#             if t == 0:
+#                 prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format("baseline",ds,seed,"baseline",ds,t-1)
+#             else: 
+#                 prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t-1)
+
+#             curr_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t)
+       
+#         g_prev = read_graph(prev_gpath,seed=seed)
+#         g_curr = read_graph(curr_gpath,seed=seed)
+
+#         recos = list(set(g_curr.edges())-set(g_prev.edges())) # get the total recommendations
+#         reco_dict, edge_dict = get_edge_dict(recos,g_curr)
+
+#         p_ijs = [reco_dict.get(k,0)/v for k, v in edge_dict.items()]
+#         var_sp = np.var(p_ijs)
+#         mean_sp.append(var_sp)
+
+#     total_sp = np.mean(mean_sp)
+#     return total_sp
+
 def get_statistical_imparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None, seed=42):
     mean_sp = list()
-    for t in range(0,T):
+    # for t in range(0,T):
 
-        if use_syn_ds:
-            if t == 0:
-                prev_gpath = MAIN_PATH+"DPAH_fm_0.3/DPAH-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}-ID0.gpickle".format(hMM,hmm)
-            else: 
-                prev_gpath = os.path.join(MAIN_PATH,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,t-1))
+    prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format("baseline",ds,seed,"baseline",ds,0)
+    curr_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,29)
+    
+    g_prev = read_graph(prev_gpath,seed=seed)
+    g_curr = read_graph(curr_gpath,seed=seed)
 
-            curr_gpath = os.path.join(MAIN_PATH,"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_{}.gpickle".format(model,model,hMM,hmm,t))
-        else: # use real dataset
-            if t == 0:
-                prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format("baseline",ds,seed,"baseline",ds,t-1)
-            else: 
-                prev_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t-1)
+    recos = list(set(g_curr.edges())-set(g_prev.edges())) # get the total recommendations
+    reco_dict, edge_dict = get_edge_dict(recos,g_curr)
 
-            curr_gpath = MAIN_PATH+"model_{}_name_{}/seed_{}/_{}-name_{}_t_{}.gpickle".format(model,ds,seed,model,ds,t)
-       
-        g_prev = read_graph(prev_gpath,seed=seed)
-        g_curr = read_graph(curr_gpath,seed=seed)
-
-        recos = list(set(g_curr.edges())-set(g_prev.edges())) # get the total recommendations
-        reco_dict, edge_dict = get_edge_dict(recos,g_curr)
-
-        p_ijs = [reco_dict.get(k,0)/v for k, v in edge_dict.items()]
-        var_sp = np.var(p_ijs)
-        mean_sp.append(var_sp)
+    p_ijs = [reco_dict.get(k,0)/v for k, v in edge_dict.items()]
+    var_sp = np.var(p_ijs)
+    mean_sp.append(var_sp)
 
     total_sp = np.mean(mean_sp)
     return total_sp
-
 
 def get_er_nwlevel(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None, seed=42):
     mean_erg = list()
@@ -186,6 +205,8 @@ def get_disparity(model, use_syn_ds=False, hMM=0.0, hmm=0.0, ds=None,seed=42):
     final_var = np.var(final_list)
     print("Model - {} Disparity - {}".format(model,final_var))
     return final_var
+
+
 
 
   

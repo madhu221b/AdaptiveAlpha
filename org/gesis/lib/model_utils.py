@@ -54,13 +54,11 @@ def generate_pos_neg_links(g,seed, prop_pos=0.1, prop_neg=0.1, ds="rice"):
  
 
         
-        if ds in ["tuenti"]:
+        if ds in ["tuenti","pokec"]:
             dgl_g = from_networkx(g)
             u, v = global_uniform_negative_sampling(dgl_g,num_samples=g.number_of_edges())
             u, v = u.unsqueeze(1), v.unsqueeze(1)
-            print(u.size(), v.size())
             non_edges = torch.hstack((u,v))
-            print(non_edges.size())
         else:
             non_edges = list(nx.non_edges(g))
     
@@ -170,4 +168,65 @@ def get_model_metrics_v2(embeddings,cos_sim,test_edges,y_true):
     print("accuracy: ", accuracy, "precision: ", precision, "recall: ", recall)
 
 
+    return auc_score, precision, recall
+
+def get_disparity(graph,cos_sim,test_edges,y_true):
+    """
+    Computes Precision & Recall
+    - Precision: Quantifies the number of correct positive predictions made.
+       Ratio of correctly predicted positive examples divided by the total number of positive examples that were predicted.
+     
+    - Recall: Calculated as the number of true positives divided by the total number of true positives and false negatives. 
+
+    
+    """
+    print("Calculating auc scores for test edges")
+    y_pred = list()
+    node_attr = nx.get_node_attributes(graph, "group")
+    group2scores = dict()
+    for (u,v), true_label in zip(test_edges,y_true):
+        val = cos_sim[u,v]
+        y_pred.append(float(val))
+        key = (node_attr[u],node_attr[v])
+        if key not in group2scores: group2scores[key] = {"pred": list(), "true":list()}
+        group2scores[key]["pred"].append(float(val))
+        group2scores[key]["true"].append(true_label)
+
+
+    # y_pred = get_cos_sims(embeddings,test_edges)
+    auc_score = roc_auc_score(y_true,y_pred)
+    print("auc score: ", auc_score)
+    
+
+    y_scores = y_pred
+    fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+    optimal_idx = np.argmax(tpr - fpr)
+    optimal_threshold = thresholds[optimal_idx]
+    print("Threshold value is:", optimal_threshold)
+
+    # accuracy
+    threshold = optimal_threshold
+    y_pred_vals = np.where(np.array(y_pred) >= threshold,1,0)
+    accuracy = accuracy_score(y_true, y_pred_vals)
+    precision = precision_score(y_true, y_pred_vals)
+    recall = recall_score(y_true, y_pred_vals)
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_vals).ravel()
+    print("tn: {},  fp:{},  fn: {},  tp: {}".format(tn, fp, fn, tp))
+    print("accuracy: ", accuracy, "precision: ", precision, "recall: ", recall)
+   
+    var_arr = list()
+    for group, scores in group2scores.items():
+        count = 0
+        for y_pred, y_true in zip(scores["pred"],scores["true"]):
+            if y_pred >= threshold and y_true:
+                count += 1
+        print("count: {}, total: {}".format(count,len(scores["pred"])))
+        count = count/len(scores["pred"])
+
+        var_arr.append(count)
+    
+    print("var arr: ", var_arr)
+    acc_dis = np.var(var_arr)*100.0
+    print("accuracy disparity: {}, for {} groups".format(acc_dis,len(var_arr)))
+    print("accuracy: ", accuracy*100.0)
     return auc_score, precision, recall

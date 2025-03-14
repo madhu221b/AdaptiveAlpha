@@ -13,29 +13,19 @@ from org.gesis.lib.cw_utils import get_upweighted_weights
 from org.gesis.lib.io import read_pickle, save_gpickle
 from load_dataset import load_rice, load_dataset
 from fairwalk.fairwalk  import FairWalk
-from fastfairwalk.fairwalk  import FastFairWalk
 from deepwalk.deepwalk  import DeepWalker
 from node2vec import Node2Vec
 from walkers.adaptivealphatest import AdaptiveAlphaTest
 from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
 from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
 from walkers.fastfairwalk import FastFairWalk
-from walkers.adaptivealpha import AdaptiveAlpha
-from walkers.adaptivealphatestlocalid import AdaptiveAlphaTestLocalId
-from walkers.nonlocalindlocalindwalker import NonLocalInDegreeLocalInDegreeWalker
-from walkers.adaptivealphafixed import AdaptiveAlphaFixed
-from walkers.indegreewalker import InDegreeWalker
+from walkers.fastcrosswalk import FastCrossWalk
 
 walker_dict = {
-"adaptivealpha" : AdaptiveAlpha,
-"adaptivealphafixed" : AdaptiveAlphaFixed,
 "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
 "ffw": FastFairWalk,
-"adaptivealphatest" : AdaptiveAlphaTest,
+"fcw": FastCrossWalk,
 "fastadaptivealphatest" : FastAdaptiveAlphaTest,
-"adaptivealphatestid": AdaptiveAlphaTestLocalId,
-"nlindlocalind": NonLocalInDegreeLocalInDegreeWalker,
-"indegree": InDegreeWalker
 }
 
 
@@ -303,6 +293,10 @@ def read_graph(file_name,seed=None):
         g = read_pickle(dsname)
     elif "baseline" in file_name and "tuenti" in file_name:
         name = "tuenti"
+        dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
+        g = read_pickle(dsname)
+    elif "baseline" in file_name and "pokec" in file_name:
+        name = "pokec"
         dsname = "./data/{}/{}_{}.gpickle".format(name,name,seed)
         g = read_pickle(dsname)
     elif "baseline" in file_name and "facebook" in file_name:
