@@ -6,12 +6,12 @@ import random
 import time
 import pickle as pkl
 import argparse
-
+from sklearn.metrics import roc_auc_score
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, read_graph
-from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2, get_disparity
+from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -19,7 +19,15 @@ from load_dataset import load_dataset
 
 EPOCHS = 30
 main_path = "../AdaptiveAlpha/"
-   
+
+def get_recos_at_random(g, all_nodes):
+    recos = list()
+    for u in all_nodes:
+        candidates = list(nx.non_neighbors(g, u))
+        v = np.random.choice(candidates, size=1)[0]
+        recos.append((u,v))
+    return recos
+
 def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         '''Defines each timestep of the simulation:
             0. each node makes experiments
@@ -32,25 +40,9 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
                               
         # set seed
         set_seed(seed)
-
-        print("Generating Node Embeddings")
-        # if "ffw" in model:
-        #     p, q = extra_params["p"], extra_params["q"]
-        #     _, embeds = recommender_model(g,t,path,model="ffw",p=p,q=q)
-        if "fw" in model and "ffw" not in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
-        elif "n2v" in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
-        # elif args.model in ["cw"]:
-        #      p_cw, alpha_cw = extra_params["p_cw"], extra_params["alpha_cw"]
-        #      _, embeds = recommender_model_cw(g, t, path, p=p_cw, alpha=alpha_cw)
-        else:
-            _, embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
         print("Getting Link Recommendations from {} Model ".format(model))
         all_nodes = g.nodes()
-        recos, cossim = get_top_recos_v2(g,embeds, all_nodes) 
+        recos = get_recos_at_random(g, all_nodes) 
         print("Recommendations Obtained")
         new_edges = 0
         removed_edges, added_edges = list(), list()
@@ -68,7 +60,7 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         g.remove_edges_from(removed_edges)
         g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
-        return g, embeds, cossim
+        return g
 
 
 def run(name,model,main_seed,extra_params):
@@ -111,12 +103,11 @@ def run(name,model,main_seed,extra_params):
         if not is_file:
             print("File does not exist for time {}, creating now".format(time))
             seed = main_seed+time+1 
-            g_updated, embeds, cossim = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
            
             g = g_updated
-            save_modeldata(embeds, cossim, test_edges, true_labels,name, model,main_seed,t=time)
+            save_modeldata(g, test_edges,true_labels,name, model,main_seed,t=time)
             save_metadata(g_updated,name, model,main_seed,t=time)
-            # get_disparity(g,cossim,test_edges,true_labels)
         else:
             print("File exists for time {}, loading it... ".format(time))
             g = g_obj
@@ -155,14 +146,13 @@ def save_metadata(g, name, model,seed,t=0):
     print("Saving graph file at, ", fn.replace(".gpickle",""))
 
 
-def save_modeldata(embeds,cossim,test_edges, true_labels, name, model,seed,t=0):
+def save_modeldata(g, test_edges, true_labels, name, model,seed,t=0):
         dict_folder = "./utility/model_{}_name_{}/seed_{}".format(model,name,seed)
         if not os.path.exists(dict_folder): os.makedirs(dict_folder)
         dict_file_name = dict_folder+"/_name{}.pkl".format(name)
-
-        # precision, recall = get_model_metrics(g,test_edges,true_labels)
-        auc_score, precision, recall = get_model_metrics_v2(embeds,cossim,test_edges,true_labels)
-        # print("Recall: {}, Precision: {} for hMM:{}, hmm:{} for T={}".format(recall, precision, hMM, hmm,t))
+       
+        y_scores = [1 if g.has_edge(u,v) else 0 for (u,v) in test_edges]
+        auc_score = roc_auc_score(true_labels,y_scores)
         print("Auc score: {}, for T:{}".format(auc_score,t))
         if not os.path.exists(dict_file_name):
             result_dict = dict()
@@ -171,42 +161,23 @@ def save_modeldata(embeds,cossim,test_edges, true_labels, name, model,seed,t=0):
             with open(dict_file_name, 'rb') as f:                
                  result_dict = pkl.load(f)
         
-        # result_dict[t] = {"precision":precision, "recall":recall}
+        precision, recall = -1, -1 
         result_dict[t] = {"auc_score":auc_score,"precision":precision, "recall":recall}  
         with open(dict_file_name, 'wb') as f:                
             pkl.dump(result_dict,f)
                
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", help="Different Walker Models", type=str)
+    parser.add_argument("--model", help="Different Walker Models", default="random", type=str)
     parser.add_argument("--name", help="Real Datasets (rice)", type=str)
-    parser.add_argument("--p", help="Return parameter", type=float, default=1.0)
-    parser.add_argument("--q", help="In-out parameter", type=float, default=1.0)
-    parser.add_argument("--beta", help="Beta paramater", type=float, default=2.0)
-    parser.add_argument("--alpha", help="Alpha paramater (Levy)", type=float, default=1.0)
     parser.add_argument("--seed", help="Seed", type=int, default=42)
-
-    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=2)
-    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.5)
 
    
     args = parser.parse_args()
     
     start_time = time.time()
     extra_params = dict()
-    if args.model in ["fw","ffw","n2v"]:
-        model = args.model + "_p_{}_q_{}".format(args.p,args.q)
-        extra_params = {"p":args.p,"q":args.q}
-    elif args.model in ["fcw"]:
-        model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
-        extra_params = {"p":args.p_cw,"alpha":args.alpha_cw}
-    elif args.model in  ["nlindlocalind","fastadaptivealphatestfixed"]:
-        model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
-        extra_params = {"alpha":args.alpha,"beta":args.beta}
-    else:
-       model =  "{}_beta_{}".format(args.model,args.beta)
-       extra_params = {"beta":args.beta}
-
+    model = args.model
     run(name=args.name, model=model,main_seed=args.seed,extra_params=extra_params)
 
 
