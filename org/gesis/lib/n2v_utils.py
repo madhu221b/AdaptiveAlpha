@@ -70,7 +70,7 @@ def recommender_model_pagerank(g, t, model, extra_params):
     
     indices = torch.tensor(list(range(g.number_of_nodes())))
     # alpha = teleport probability therefore (1-alpha) is pr of following links set to 0.85 in Ferrera work.
-    ppr_scores = fair_personalized_page_rank(adj_matrix, node_tensor, indices, alpha=0.15, psi=0.5)
+    ppr_scores = fair_personalized_page_rank(adj_matrix, node_tensor, indices, alpha=0.15, psi=extra_params["psi"])
     return ppr_scores
 
 
@@ -88,7 +88,7 @@ def recommender_model_walker(G,t=0,model="n2v",extra_params=dict(),num_cores=8, 
     # embeddings = walkobj.fit()
     # emb_df = (pd.DataFrame([embeddings[n] for n in G.nodes()], index = G.nodes))
     # return model, embeddings
-    return None, embeddings
+    return embeddings
 
 
 def recommender_model(G,t=0,path="",model="n2v",p=1,q=1,num_cores=8, is_walk_viz=False):
@@ -152,6 +152,28 @@ def get_top_recos(g, embeddings, u, N=1):
     print("len(results) in recos method: ", len(results))   
     return results 
 
+def get_top_recos_by_ppr_score(g, ppr_scores, N=1):
+    results = []
+    adj =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+    np.fill_diagonal(adj, 1)
+    adj = torch.tensor(adj)
+    n_mask = (adj == 0)
+    n_neighbors = n_mask.nonzero()[:, 1]
+    n_degrees = n_mask.sum(dim=1)
+    
+    n_start_index = 0
+    for node, ppr_scores_by_node in enumerate(ppr_scores):
+        n_size_ngh = int(n_degrees[node])
+        n_nghs = n_neighbors[n_start_index:n_start_index+n_size_ngh]
+        n_start_index += n_size_ngh
+        ppr_scores_of_non_nghs = ppr_scores_by_node[n_nghs]
+        _, tgt_indices = torch.topk(ppr_scores_of_non_nghs, N, sorted=False)
+        tgt_nodes = n_nghs[tgt_indices]
+        results.extend([(node, int(tgt)) for tgt in tgt_nodes])
+        
+    print("Number of Recommendations Obtained: ", len(results)) 
+    return results
+
 
 def get_top_recos_v2(g, embeddings, all_nodes, N=1):
     cosine_sim = pairwise_cosine_similarity(embeddings, embeddings)
@@ -208,8 +230,8 @@ def get_top_recos_v2(g, embeddings, all_nodes, N=1):
     #     for tgt in tgt_nodes:
     #          results.append((src_node, int(tgt)))
 
-    print("len(results) in recos method: ", len(results))   
-    return results, cosine_sim
+    print("Number of Recommendations Obtained: ", len(results))   
+    return results
 
 
 def get_diff_group_centrality(g,centrality_dict,group):

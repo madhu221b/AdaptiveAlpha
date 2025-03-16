@@ -10,7 +10,8 @@ from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model_pagerank, \
-                                    recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, read_graph
+                                    recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, \
+                                     read_graph
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -33,24 +34,28 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
             0. each node makes experiments
             1. loops in the permutation of nodes choosing the INFLUENCED node u (u->v means u follows v, v can influence u)
             2. loops s (number of interactions times)
-            3. choose existing links with 1-a prob, else recommends
-                4. if recommendes: invokes recommend_nodes() to choose the influencers nodes that are not already linked u->v
+            3. choose existing links - remove them
+            4. add recommended listx
 
         '''
                               
         # set seed
         set_seed(seed)
+      
+        
         if "fpr" in model:
             print("Getting Personalised Page Rank Scores")
             ppr_scores = recommender_model_pagerank(g, t, model=model, extra_params=extra_params)
+            recos = get_top_recos_by_ppr_score(g, ppr_scores) 
         else:
             print("Generating Node Embeddings")
-            _, embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
-        print("Getting Link Recommendations from {} Model ".format(model))
-        all_nodes = g.nodes()
-        recos, cossim = get_top_recos_v2(g,embeds, all_nodes) 
-        # recos = get_top_recos(g, embeds, all_nodes)
-        print("Recommendations Obtained")
+            embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
+            all_nodes = g.nodes()
+            print("Getting Link Recommendations from {} Model ".format(model))
+            recos = get_top_recos_v2(g,embeds, all_nodes) 
+        
+        
+        print("Recommendations Obtained, Now Rewiring the Recommendations")
         new_edges = 0
         removed_edges, added_edges = list(), list()
         for i,(u,v) in enumerate(recos):
@@ -60,17 +65,15 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
                edges_to_be_removed = rewiring_list(g, u, 1)
                removed_edges.extend(edges_to_be_removed)
                added_edges.append((u,v))
-               # g.remove_edges_from(edges_to_be_removed) # deleting previously existing links
                new_edges += 1
-               # g.add_edge(u,v)
             seed += 1
         g.remove_edges_from(removed_edges)
         g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
-        return g, embeds, cossim
+        return g
 
 
-def run(hMM, hmm,model,fm,extra_params):
+def run(hMM, hmm,model,fm, extra_params):
     # try:  
     # # Setting seed
     np.random.seed(MAIN_SEED)
@@ -99,12 +102,13 @@ def run(hMM, hmm,model,fm,extra_params):
         if not is_file and not is_file_final:
             print("File does not exist for time {}, creating now".format(time))
             seed = MAIN_SEED+time+1 
-            g_updated, _, _ = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
             g = g_updated
             save_metadata(g, hMM, hmm, model,fm,t=time)
         else:
             print("File exists for time {}, loading it... ".format(time))
             g = g_obj
+
     # except Exception as err:
     #     print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
 
@@ -153,7 +157,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=4)
     parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.7)
-
+    
+    parser.add_argument("--psi", help="Fair PageRank - psi - LFPR_N algorithm", type=float, default=0.5)
     args = parser.parse_args()
     
     start_time = time.time()
@@ -169,16 +174,17 @@ if __name__ == "__main__":
         model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
         extra_params = {"p":args.p_cw,"alpha":args.alpha_cw}
     elif args.model in ["fpr"]:
-        model = args.model
+        model = args.model + "_psi_{}".format(args.psi)
+        extra_params = {"psi":args.psi}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
-    run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
+    # run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
 
     start_idx, end_idx = args.start, args.end
     print("STARTING IDX", start_idx, ", END IDX", end_idx)
-    # num_cores = 8
-    # [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
+    num_cores = 8
+    [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
 
 
     print("--- %s seconds ---" % (time.time() - start_time))
