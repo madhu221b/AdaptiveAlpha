@@ -7,15 +7,13 @@ import networkx as nx
 import torch
 from torchmetrics.functional import pairwise_cosine_similarity
 from sklearn.metrics.pairwise import cosine_similarity
-
+import dgl
 
 from org.gesis.lib.cw_utils import get_upweighted_weights
 from org.gesis.lib.io import read_pickle, save_gpickle
+from org.gesis.lib.pagerank import personalized_page_rank
+from org.gesis.lib.fairpagerank import fair_personalized_page_rank
 from load_dataset import load_rice, load_dataset
-from fairwalk.fairwalk  import FairWalk
-from deepwalk.deepwalk  import DeepWalker
-from node2vec import Node2Vec
-from walkers.adaptivealphatest import AdaptiveAlphaTest
 from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
 from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
 from walkers.fastfairwalk import FastFairWalk
@@ -34,8 +32,6 @@ DIM = 64
 WALK_LEN = 10
 NUM_WALKS = 200
 
-import torch
-import dgl
 main_path = "../AdaptiveAlpha"
 
 def set_seed(seed):
@@ -60,17 +56,25 @@ def rewiring_list(G, node, number_of_rewiring):
         nodes_to_be_unfollowed = np.random.permutation(node_neighbors)[:number_of_rewiring]
         return list(map(lambda x: tuple([node, x]), nodes_to_be_unfollowed))
 
-def get_walks(G,model="n2v",extra_params=dict(),num_cores=8):
-    if model == "n2v":
-         node2vec = Node2Vec(G, dimensions=DIM, walk_length=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores)
-         return node2vec.walks
-    elif model == "fw":
-        fw_model = FairWalk(G, dimensions=DIM, walk_length=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores)
-        return fw_model.walks
+def recommender_model_pagerank(g, t, model, extra_params):
+    # Get adjacency matrix
+    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+    adj_matrix = torch.tensor(adj_matrix)
 
-    WalkerObj = walker_dict[model] # degree_beta_1.0 for instance
-    walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,**extra_params)
-    return walkobj.walks
+    # Get node attributes
+    node_attributes = nx.get_node_attributes(g, "group")
+    node_tensor = torch.zeros(len(node_attributes), 1)
+    # Populate the tensor with the node attributes using the indices
+    for idx, attributes in node_attributes.items():
+        node_tensor[idx] = torch.tensor(attributes)
+    
+    indices = torch.tensor(list(range(g.number_of_nodes())))
+    # alpha = teleport probability therefore (1-alpha) is pr of following links set to 0.85 in Ferrera work.
+    ppr_scores = fair_personalized_page_rank(adj_matrix, node_tensor, indices, alpha=0.15, psi=0.5)
+    return ppr_scores
+
+
+
 
 def recommender_model_walker(G,t=0,model="n2v",extra_params=dict(),num_cores=8, is_walk_viz=False):
     WalkerObj = walker_dict[model.split("_")[0]] # degree_beta_1.0 for instance
@@ -207,55 +211,6 @@ def get_top_recos_v2(g, embeddings, all_nodes, N=1):
     print("len(results) in recos method: ", len(results))   
     return results, cosine_sim
 
-def get_walk_plots(walks, g, t,dict_path):
-    try:
-        print("get trace for t = ", t)
-        node_to_walk_dict = {}
-        len_majority_nodes  = len([node for node in g.nodes() if g.nodes[node]["m"] == 0])
-        len_minority_nodes = len(g.nodes()) - len_majority_nodes
-        
-        for sub_walk in walks:
-         
-            sub_walk = [int(node) for node in sub_walk]
-            src_node = sub_walk[0]
-            if src_node not in node_to_walk_dict:
-                node_to_walk_dict[src_node] = list(set(sub_walk))
-            else:
-                new_list = list(set(node_to_walk_dict[src_node]+sub_walk))
-                node_to_walk_dict[src_node] = new_list
-        
-        maj_frac, min_frac = 0, 0
-       
-    
-        for _, walk in node_to_walk_dict.items():
-           
-            majority_nodes_visited = len([_ for node in walk if g.nodes[node]["m"] == 0])
-            minority_nodes_visited = len([_ for node in walk if g.nodes[node]["m"] == 1])
-            maj_frac += round(majority_nodes_visited/len_majority_nodes,2)
-            min_frac += round(minority_nodes_visited/len_minority_nodes,2)
-            
-        avg_maj_frac = round(maj_frac/len(g.nodes()),2)
-        avg_min_frac = round(min_frac/len(g.nodes()),2)
-        print("~~~~~~~~~~~ maj frac: {}, min frac:{}".format(avg_maj_frac, avg_min_frac))
-        if os.path.exists(dict_path):
-             with open(dict_path, 'rb') as f:
-                dict_ = pkl.load(f)
-        else:
-            dict_ = {}
-
-        # also compute avg betweenness centrality
-        centrality_dict = nx.betweenness_centrality(g, normalized=True)
-        minority_centrality = [val for node, val in centrality_dict.items() if g.nodes[node]["m"] == 1]
-        avg_val = np.mean(minority_centrality)    
-        
-        dict_[t] = {"maj":avg_maj_frac, "min": avg_min_frac,"bet":avg_val}
-        print("!! comes here to write")
-        os.makedirs(os.path.dirname(dict_path), exist_ok=True)
-        with open(dict_path, 'wb') as f:
-           pkl.dump(dict_, f)
-       
-    except Exception as error:
-        print("Error in get walk plots: ", error)
 
 def get_diff_group_centrality(g,centrality_dict,group):
     
