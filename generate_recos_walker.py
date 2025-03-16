@@ -9,7 +9,8 @@ import pickle
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
-from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, read_graph
+from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model_pagerank, \
+                                    recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, read_graph
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -39,21 +40,11 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
                               
         # set seed
         set_seed(seed)
-
-        print("Generating Node Embeddings")
-        if "fw" in model and "ffw" not in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="ffw",p=p,q=q)
-        # elif "fw" in model:
-        #     p, q = extra_params["p"], extra_params["q"]
-        #     _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
-        elif "n2v" in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
-        # elif "cw" in model:
-        #     p_cw, alpha_cw = extra_params["p_cw"], extra_params["alpha_cw"]
-        #     _, embeds = recommender_model_cw(g, t, path, p=p_cw, alpha=alpha_cw)
+        if "fpr" in model:
+            print("Getting Personalised Page Rank Scores")
+            ppr_scores = recommender_model_pagerank(g, t, model=model, extra_params=extra_params)
         else:
+            print("Generating Node Embeddings")
             _, embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
         print("Getting Link Recommendations from {} Model ".format(model))
         all_nodes = g.nodes()
@@ -80,42 +71,42 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
 
 
 def run(hMM, hmm,model,fm,extra_params):
-    try:  
+    # try:  
     # # Setting seed
-        np.random.seed(MAIN_SEED)
-        random.seed(MAIN_SEED)
-        folder_path = main_path+"/{}_fm_{}".format(model,fm)
-        new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
-        new_path = os.path.join(folder_path, new_filename) 
-        if os.path.exists(new_path): # disabling this condition
-            print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
-            return 
-        print("hMM: {}, hmm: {}".format(hMM, hmm))
+    np.random.seed(MAIN_SEED)
+    random.seed(MAIN_SEED)
+    folder_path = main_path+"/{}_fm_{}".format(model,fm)
+    new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
+    new_path = os.path.join(folder_path, new_filename) 
+    if os.path.exists(new_path): # disabling this condition
+        print("File exists for configuration hMM:{}, hmm:{}".format(hMM,hmm))
+        return 
+    print("hMM: {}, hmm: {}".format(hMM, hmm))
 
-        # read the base graph from DPAH folder
-        old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
-        DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
-        g = read_graph(os.path.join(DPAH_path,old_filename))
+    # read the base graph from DPAH folder
+    old_filename = "DPAH-N" + new_filename.replace(".gpickle","").split("N")[-1] + "-ID0.gpickle"
+    DPAH_path = main_path+"/DPAH_fm_{}".format(fm)
+    g = read_graph(os.path.join(DPAH_path,old_filename))
 
-        node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
-        nx.set_node_attributes(g, node2group, 'group')
+    node2group = {node:g.nodes[node]["m"] for node in g.nodes()}
+    nx.set_node_attributes(g, node2group, 'group')
 
-        iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
-        time = 0
-        for time in iterable:
-            is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-            is_file_final, _=  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
-            if not is_file and not is_file_final:
-                print("File does not exist for time {}, creating now".format(time))
-                seed = MAIN_SEED+time+1 
-                g_updated, _, _ = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
-                g = g_updated
-                save_metadata(g, hMM, hmm, model,fm,t=time)
-            else:
-                print("File exists for time {}, loading it... ".format(time))
-                g = g_obj
-    except Exception as err:
-        print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
+    iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
+    time = 0
+    for time in iterable:
+        is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
+        is_file_final, _=  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
+        if not is_file and not is_file_final:
+            print("File does not exist for time {}, creating now".format(time))
+            seed = MAIN_SEED+time+1 
+            g_updated, _, _ = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g = g_updated
+            save_metadata(g, hMM, hmm, model,fm,t=time)
+        else:
+            print("File exists for time {}, loading it... ".format(time))
+            g = g_obj
+    # except Exception as err:
+    #     print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
 
 
 def is_file_exists(hMM, hmm, model,fm,t):
@@ -167,24 +158,27 @@ if __name__ == "__main__":
     
     start_time = time.time()
     extra_params = dict()
-    if args.model in  ["nlindlocalind","adaptivealphafixed","fastadaptivealphatestfixed"]:
+    
+    if args.model in  ["fastadaptivealphatestfixed"]:
         model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
         extra_params = {"alpha":args.alpha,"beta":args.beta}
-    elif args.model in ["fw","n2v","ffw"]:
+    elif args.model in ["ffw"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
     elif args.model in ["fcw"]:
         model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
         extra_params = {"p":args.p_cw,"alpha":args.alpha_cw}
+    elif args.model in ["fpr"]:
+        model = args.model
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
-    # run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
+    run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
 
     start_idx, end_idx = args.start, args.end
     print("STARTING IDX", start_idx, ", END IDX", end_idx)
-    num_cores = 8
-    [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
+    # num_cores = 8
+    # [Parallel(n_jobs=num_cores)(delayed(run)(np.round(hMM,2), np.round(hmm,2), model=model, fm=args.fm,extra_params=extra_params) for hMM in np.arange(start_idx, end_idx, 0.1) for hmm in np.arange(0.0,1.1,0.1))]
 
 
     print("--- %s seconds ---" % (time.time() - start_time))
