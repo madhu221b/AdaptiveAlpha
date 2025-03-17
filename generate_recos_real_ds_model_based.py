@@ -10,7 +10,8 @@ import argparse
 from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
-from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, read_graph
+from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, \
+                                    recommender_model_pagerank, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, read_graph
 from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2, get_disparity
 from joblib import delayed
 from joblib import Parallel
@@ -25,33 +26,30 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
             0. each node makes experiments
             1. loops in the permutation of nodes choosing the INFLUENCED node u (u->v means u follows v, v can influence u)
             2. loops s (number of interactions times)
-            3. choose existing links with 1-a prob, else recommends
-                4. if recommendes: invokes recommend_nodes() to choose the influencers nodes that are not already linked u->v
+            3. choose existing links - remove them
+            4. add recommended listx
 
         '''
                               
         # set seed
         set_seed(seed)
-
-        print("Generating Node Embeddings")
-        # if "ffw" in model:
-        #     p, q = extra_params["p"], extra_params["q"]
-        #     _, embeds = recommender_model(g,t,path,model="ffw",p=p,q=q)
-        if "fw" in model and "ffw" not in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="fw",p=p,q=q)
-        elif "n2v" in model:
-            p, q = extra_params["p"], extra_params["q"]
-            _, embeds = recommender_model(g,t,path,model="n2v",p=p,q=q)
-        # elif args.model in ["cw"]:
-        #      p_cw, alpha_cw = extra_params["p_cw"], extra_params["alpha_cw"]
-        #      _, embeds = recommender_model_cw(g, t, path, p=p_cw, alpha=alpha_cw)
+      
+        sim_matrix = None
+        if "fpr" in model:
+            print("Getting Personalised Page Rank Scores")
+            ppr_scores = recommender_model_pagerank(g, t, model=model, extra_params=extra_params)
+            recos, ppr_scores = get_top_recos_by_ppr_score(g, ppr_scores) 
+            sim_matrix = ppr_scores
         else:
-            _, embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
-        print("Getting Link Recommendations from {} Model ".format(model))
-        all_nodes = g.nodes()
-        recos, cossim = get_top_recos_v2(g,embeds, all_nodes) 
-        print("Recommendations Obtained")
+            print("Generating Node Embeddings")
+            embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
+            all_nodes = g.nodes()
+            print("Getting Link Recommendations from {} Model ".format(model))
+            recos, cosine_sim = get_top_recos_v2(g,embeds, all_nodes) 
+            sim_matrix = cosine_sim
+        
+        
+        print("Recommendations Obtained, Now Rewiring the Recommendations")
         new_edges = 0
         removed_edges, added_edges = list(), list()
         for i,(u,v) in enumerate(recos):
@@ -61,14 +59,12 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
                edges_to_be_removed = rewiring_list(g, u, 1)
                removed_edges.extend(edges_to_be_removed)
                added_edges.append((u,v))
-               # g.remove_edges_from(edges_to_be_removed) # deleting previously existing links
                new_edges += 1
-               # g.add_edge(u,v)
             seed += 1
         g.remove_edges_from(removed_edges)
         g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
-        return g, embeds, cossim
+        return g, sim_matrix
 
 
 def run(name,model,main_seed,extra_params):
@@ -111,10 +107,10 @@ def run(name,model,main_seed,extra_params):
         if not is_file:
             print("File does not exist for time {}, creating now".format(time))
             seed = main_seed+time+1 
-            g_updated, embeds, cossim = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g_updated, sim_matrix = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
            
             g = g_updated
-            save_modeldata(embeds, cossim, test_edges, true_labels,name, model,main_seed,t=time)
+            save_modeldata(sim_matrix, test_edges, true_labels,name, model,main_seed,t=time)
             save_metadata(g_updated,name, model,main_seed,t=time)
             # get_disparity(g,cossim,test_edges,true_labels)
         else:
@@ -155,13 +151,13 @@ def save_metadata(g, name, model,seed,t=0):
     print("Saving graph file at, ", fn.replace(".gpickle",""))
 
 
-def save_modeldata(embeds,cossim,test_edges, true_labels, name, model,seed,t=0):
+def save_modeldata(sim_matrix, test_edges, true_labels, name, model,seed,t=0):
         dict_folder = "./utility/model_{}_name_{}/seed_{}".format(model,name,seed)
         if not os.path.exists(dict_folder): os.makedirs(dict_folder)
         dict_file_name = dict_folder+"/_name{}.pkl".format(name)
 
         # precision, recall = get_model_metrics(g,test_edges,true_labels)
-        auc_score, precision, recall = get_model_metrics_v2(embeds,cossim,test_edges,true_labels)
+        auc_score, precision, recall = get_model_metrics_v2(sim_matrix, test_edges, true_labels)
         # print("Recall: {}, Precision: {} for hMM:{}, hmm:{} for T={}".format(recall, precision, hMM, hmm,t))
         print("Auc score: {}, for T:{}".format(auc_score,t))
         if not os.path.exists(dict_file_name):
@@ -188,21 +184,26 @@ if __name__ == "__main__":
 
     parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=2)
     parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.5)
+    parser.add_argument("--psi", help="Fair PageRank - psi - LFPR_N algorithm", type=float, default=0.5)
 
    
     args = parser.parse_args()
     
     start_time = time.time()
     extra_params = dict()
-    if args.model in ["fw","ffw","n2v"]:
+    
+    if args.model in  ["fastadaptivealphatestfixed"]:
+        model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
+        extra_params = {"alpha":args.alpha,"beta":args.beta}
+    elif args.model in ["ffw"]:
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
     elif args.model in ["fcw"]:
         model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
         extra_params = {"p":args.p_cw,"alpha":args.alpha_cw}
-    elif args.model in  ["nlindlocalind","fastadaptivealphatestfixed"]:
-        model = "{}_alpha_{}_beta_{}".format(args.model,args.alpha,args.beta)
-        extra_params = {"alpha":args.alpha,"beta":args.beta}
+    elif args.model in ["fpr"]:
+        model = args.model + "_psi_{}".format(args.psi)
+        extra_params = {"psi":args.psi}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}

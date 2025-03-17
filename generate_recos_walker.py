@@ -46,13 +46,13 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         if "fpr" in model:
             print("Getting Personalised Page Rank Scores")
             ppr_scores = recommender_model_pagerank(g, t, model=model, extra_params=extra_params)
-            recos = get_top_recos_by_ppr_score(g, ppr_scores) 
+            recos, ppr_scores = get_top_recos_by_ppr_score(g, ppr_scores) 
         else:
             print("Generating Node Embeddings")
             embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
             all_nodes = g.nodes()
             print("Getting Link Recommendations from {} Model ".format(model))
-            recos = get_top_recos_v2(g,embeds, all_nodes) 
+            recos, cosine_sim = get_top_recos_v2(g,embeds, all_nodes) 
         
         
         print("Recommendations Obtained, Now Rewiring the Recommendations")

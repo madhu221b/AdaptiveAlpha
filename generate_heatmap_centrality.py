@@ -156,17 +156,28 @@ def generate_heatmap(file_path, model, reco_type, centrality, diff=False, group=
     
     # vmin, vmax = -0.002, 0.002
     # cmap =  plt.cm.coolwarm
+    sns.set(font_scale=1.2)
     heatmap = heatmap[:-1,:-1]
     hmm_ticks, hMM_ticks = hmm_ticks[:-1], hMM_ticks[:-1]
     if is_display:
         if labels is not None:
-             ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
+             ax = sns.heatmap(heatmap, cmap=cmap,vmin=vmin,vmax=vmax,annot = labels, fmt='')
         else:
-            ax = sns.heatmap(heatmap, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax,annot = labels, fmt='')
-        ax.invert_yaxis()
+            ax = sns.heatmap(heatmap, cmap=cmap,vmin=vmin,vmax=vmax)
 
-        ax.set_xlabel("Homophily for Minority Class "+ r"($h_{mm}$)")
-        ax.set_ylabel("Homophily for Majority Class "+ r"($h_{MM}$)")
+        # xticklabels=hmm_ticks,yticklabels=hMM_ticks,
+        hmm_ticks = hMM_ticks = ["0.0","","","0.3","","","0.6","","","0.9"]
+        ax.xaxis.tick_bottom()
+        ax.yaxis.tick_left()
+        ax.set_xticklabels(hmm_ticks, fontsize = 14)
+        ax.set_yticklabels(hMM_ticks, fontsize = 14)
+        ax.invert_yaxis()
+   
+        # ax.set_xlabel("Homophily for Minority Class "+ r"($h_{mm}$)", fontweight='bold')
+        # ax.set_ylabel("Homophily for Majority Class "+ r"($h_{MM}$)",  fontweight='bold')
+
+        ax.set_xlabel("Homophily for Minority Class ", fontweight='bold')
+        ax.set_ylabel("Homophily for Majority Class",  fontweight='bold')
 
         fig = ax.get_figure()
         fig.savefig(plot_directory+"/{}_{}_{}_diff_{}_group_{}.pdf".format(reco_type,model,centrality,diff,group),bbox_inches='tight')
@@ -181,7 +192,7 @@ def generate_diff_heatmap(h1,h2):
     diff = h1-h2
     vmin, vmax = -0.002, 0.002
     ax = sns.heatmap(diff, cmap=cmap,xticklabels=hmm_ticks,yticklabels=hMM_ticks,vmin=vmin,vmax=vmax)
-
+    
     
     ax.invert_yaxis()
 
@@ -212,15 +223,15 @@ if __name__ == "__main__":
     path = main_path+"{}".format(args.model)
     generate_heatmap(path, args.model, args.reco, args.centrality, args.diff, args.group, is_display=True) 
 
-    #  ffw_p_1.0_q_1.0_fm_0.3, adaptivealphatest_beta_2.0_fm_0.3
-    # model1, model2 = "ffw_p_1.0_q_1.0_fm_0.3", args.model
+    #  ffw_p_1.0_q_1.0_fm_0.3, fastadaptivealphatest_beta_2.0_fm_0.3, fcw_p_2.0_alpha_0.5_fm_0.3
+    # model1, model2 = "fpr_psi_0.3_fm_0.3", args.model
     # path1, path2 = main_path+"{}".format(model1), main_path+"{}".format(model2)
     # h1 = generate_heatmap(path1, model1, args.reco, args.centrality, args.diff, args.group, is_display=False)
     # h2 = generate_heatmap(path2, model2, args.reco, args.centrality, args.diff, args.group, is_display=False)
     # compare = compare_heatmap(h1,h2, model1, model2)
     # ts = compare.astype(str)
     # ts[ts ==  "True"] = ""
-    # ts[ts ==  "False"] = "o"
+    # ts[ts ==  "False"] = "x"
     # h2 = generate_heatmap(path2, model2, args.reco, args.centrality, args.diff, args.group, is_display=True,labels=ts)
 
 

@@ -95,7 +95,8 @@ def load_rice():
     g.add_nodes_from(node_data)
     g.add_edges_from(edge_data)
     nx.relabel_nodes(g, mapping, copy=False)
-
+    save_gpickle(g, "./data/rice/rice_original.gpickle")
+    print("isolated nodes: ", len(list(nx.isolates(g))))
     return g
 
 def load_twitter():
@@ -136,7 +137,6 @@ def load_facebook(features=["gender"],syn_ds=False,n_comm=2):
     return g   
 
 def load_tuenti():
-    MAX_LIMIT = 40000
     path = "./data/tuenti/"
     node_file = path+"graph_nodes_by_gender.tsv"
     edge_file = path+"graph_edges_by_gender.tsv"
@@ -163,49 +163,42 @@ def load_tuenti():
     sampler = ForestFireSampler(number_of_nodes=n, seed= 42)
     g_sampled = sampler.sample(g.to_undirected())
     g = g.subgraph(list(g_sampled.nodes()))
-    # print(g.number_of_nodes())
-    # import random
-    # random.seed(42)
-    # np.random.seed(42)
-    
-    # subset = list()
-    # while True:
-         
-    # connected_nodes = nx.connected_components(g.to_undirected())
-    # for _ in connected_nodes:
-    #    if len(list(_)) < 80000: break
-    #    print(len(list(_)), file=open("trial.txt", "a"))
-    
-        #  g_subset = g.subgraph(list(connected_nodes))
-        #  print("Subset created of size: ", len(list(connected_nodes)))
-        #  if len(list(connected_nodes)) < MAX_LIMIT: break
-        #  g = g_subset.copy()
-         
- 
+    g_subset = g
+    mapping = {node:i for i, node in enumerate(g_subset.nodes())}
+    g = nx.relabel_nodes(g_subset, mapping)
+    print("isolated nodes: ", len(list(nx.isolates(g))))
+    return g
 
-    # # connected_components = sorted(connected_components, key=len, reverse=True)
-    # check, j = 0, 0
-    # connected_nodes = []
-    # for component in connected_components:
-    #     if check > MAX_LIMIT: break
-    #     connected_nodes.extend(component)
-    #     check += len(component)
-    #     j += 1
-    # print("{} connected components extracted from Tuenti".format(j))
-    # # components = sorted(connected_components, key=len, reverse=True)[:K]
-    # # connected_nodes = []
-    # # for component in connected_components:
-    # #     connected_nodes.extend(component)
-    # g = g.subgraph(connected_nodes)
-    # node_attrs = nx.get_node_attributes(g,"group")
-    # unique_groups = set(node_attrs.values())
-    # subset = list()
-    # # for group in unique_groups:
-    # #     nodes = [k for k, v in node_attrs.items() if v == group]
-    # #     k = int(len(nodes)*0.1)
-    # #     subset_nodes = np.random.choice(nodes, size = k, replace=False)
-    # #     subset.extend(subset_nodes)
-    # # g_subset = g.subgraph(subset)
+def load_pokec():
+    path = "./data/pokec/"
+    node_file = path+"graph_nodes_by_age.tsv"
+    edge_file = path+"graph_edges_by_age.tsv"
+    
+    node_df = pd.read_csv(node_file, sep = '\t')
+    edge_df = pd.read_csv(edge_file, sep = '\t')
+    
+    node_df.set_index('node',inplace=True)
+    node_df.rename(columns={"age": "group"}, inplace=True)
+
+    node_df.loc[node_df['group'] == "young", "group"] = 0
+    node_df.loc[node_df['group'] == "old", "group"] = 1
+    node_dict = node_df.to_dict('index')
+    node_data = list(node_dict.items())
+
+    edge_data = edge_df.apply(tuple, axis=1).tolist()
+    
+    g = nx.DiGraph()
+    g.add_nodes_from(node_data)
+    g.add_edges_from(edge_data)
+
+    k = 0.15
+    n = int(k*g.number_of_nodes())
+
+    print("Sampling {} number of nodes from g".format(n))
+
+    sampler = ForestFireSampler(number_of_nodes=n, seed= 42)
+    g_sampled = sampler.sample(g.to_undirected())
+    g = g.subgraph(list(g_sampled.nodes()))
     g_subset = g
     mapping = {node:i for i, node in enumerate(g_subset.nodes())}
     g = nx.relabel_nodes(g_subset, mapping)
@@ -221,6 +214,8 @@ def load_dataset(name):
         g = load_synth()
     elif name == "tuenti":
         g = load_tuenti()
+    elif name == "pokec":
+        g = load_pokec()
     elif name.startswith("facebook"):
         if "locale" in name:
             g = load_facebook(features=["locale"])
@@ -241,6 +236,6 @@ def load_twitter_climate():
     g = nx.read_gpickle("./data/twitter/twitter_climate.gpickle")
     return g
 if __name__ == "__main__":
-    g = load_dataset("tuenti")
-    # print(g.number_of_nodes(), g.number_of_edges(), nx.average_clustering(g), nx.transitivity(g))
+    g = load_dataset("rice")
+    print(g.number_of_nodes(), g.number_of_edges())#, nx.average_clustering(g), nx.transitivity(g))
     get_edge_info(g)

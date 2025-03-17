@@ -172,7 +172,7 @@ def get_top_recos_by_ppr_score(g, ppr_scores, N=1):
         results.extend([(node, int(tgt)) for tgt in tgt_nodes])
         
     print("Number of Recommendations Obtained: ", len(results)) 
-    return results
+    return results, ppr_scores
 
 
 def get_top_recos_v2(g, embeddings, all_nodes, N=1):
@@ -231,7 +231,7 @@ def get_top_recos_v2(g, embeddings, all_nodes, N=1):
     #          results.append((src_node, int(tgt)))
 
     print("Number of Recommendations Obtained: ", len(results))   
-    return results
+    return results, cosine_sim
 
 
 def get_diff_group_centrality(g,centrality_dict,group):

@@ -231,7 +231,7 @@ def fair_personalized_page_rank(
     :return: shape: ``(n, k)``
         the PPR vectors for each node index
     """
-    batch_size = 1
+    batch_size = 10
     P_N = get_fair_adjacency_matrix(adj=adj, node_attr=node_attr, psi=psi)
     return torch.cat(
         [
