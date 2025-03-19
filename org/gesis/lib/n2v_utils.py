@@ -14,17 +14,17 @@ from org.gesis.lib.io import read_pickle, save_gpickle
 from org.gesis.lib.pagerank import personalized_page_rank
 from org.gesis.lib.fairpagerank import fair_personalized_page_rank
 from load_dataset import load_rice, load_dataset
-from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
-from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
-from walkers.fastfairwalk import FastFairWalk
-from walkers.fastcrosswalk import FastCrossWalk
+# from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
+# from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
+# from walkers.fastfairwalk import FastFairWalk
+# from walkers.fastcrosswalk import FastCrossWalk
 
-walker_dict = {
-"fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
-"ffw": FastFairWalk,
-"fcw": FastCrossWalk,
-"fastadaptivealphatest" : FastAdaptiveAlphaTest,
-}
+# walker_dict = {
+# "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
+# "ffw": FastFairWalk,
+# "fcw": FastCrossWalk,
+# "fastadaptivealphatest" : FastAdaptiveAlphaTest,
+# }
 
 
 # Hyperparameter for node2vec/fairwalk
@@ -56,10 +56,12 @@ def rewiring_list(G, node, number_of_rewiring):
         nodes_to_be_unfollowed = np.random.permutation(node_neighbors)[:number_of_rewiring]
         return list(map(lambda x: tuple([node, x]), nodes_to_be_unfollowed))
 
-def recommender_model_pagerank(g, t, model, extra_params):
+def recommender_model_pagerank(g, t, test_edges, model, extra_params):
     # Get adjacency matrix
-    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
-    adj_matrix = torch.tensor(adj_matrix)
+    # adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+ 
+    adj_matrix = nx.adjacency_matrix(g).toarray()   
+    adj_matrix = torch.tensor(adj_matrix, dtype=torch.float32)
 
     # Get node attributes
     node_attributes = nx.get_node_attributes(g, "group")
@@ -70,7 +72,7 @@ def recommender_model_pagerank(g, t, model, extra_params):
     
     indices = torch.tensor(list(range(g.number_of_nodes())))
     # alpha = teleport probability therefore (1-alpha) is pr of following links set to 0.85 in Ferrera work.
-    ppr_scores = fair_personalized_page_rank(adj_matrix, node_tensor, indices, alpha=0.15, psi=extra_params["psi"])
+    ppr_scores = fair_personalized_page_rank(adj_matrix, node_tensor, indices, test_edges, alpha=0.15, psi=extra_params["psi"])
     return ppr_scores
 
 
@@ -152,11 +154,8 @@ def get_top_recos(g, embeddings, u, N=1):
     print("len(results) in recos method: ", len(results))   
     return results 
 
-def get_top_recos_by_ppr_score(g, ppr_scores, N=1):
+def get_top_recos_by_ppr_score(adj, ppr_scores, N=1):
     results = []
-    adj =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
-    np.fill_diagonal(adj, 1)
-    adj = torch.tensor(adj)
     n_mask = (adj == 0)
     n_neighbors = n_mask.nonzero()[:, 1]
     n_degrees = n_mask.sum(dim=1)
@@ -172,7 +171,7 @@ def get_top_recos_by_ppr_score(g, ppr_scores, N=1):
         results.extend([(node, int(tgt)) for tgt in tgt_nodes])
         
     print("Number of Recommendations Obtained: ", len(results)) 
-    return results, ppr_scores
+    return results
 
 
 def get_top_recos_v2(g, embeddings, all_nodes, N=1):

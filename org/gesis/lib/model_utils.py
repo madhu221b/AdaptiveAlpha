@@ -130,7 +130,7 @@ def get_model_metrics(g,test_edges,y_true):
     print("tn: {},  fp:{},  fn: {},  tp: {}".format(tn, fp, fn, tp))
     return precision, recall, accuracy
 
-def get_model_metrics_v2(sim_matrix, test_edges, y_true):
+def get_model_metrics_v2(sim_matrix, test_edges, y_true, y_pred):
     """
     Computes Precision & Recall
     - Precision: Quantifies the number of correct positive predictions made.
@@ -141,10 +141,11 @@ def get_model_metrics_v2(sim_matrix, test_edges, y_true):
     
     """
     print("Calculating auc scores for test edges")
-    y_pred = list()
-    for (u,v) in test_edges:
-        val = sim_matrix[u,v]
-        y_pred.append(float(val))
+    if y_pred is None:
+        y_pred = list()
+        for (u,v) in test_edges:
+            val = sim_matrix[u,v]
+            y_pred.append(float(val))
 
     # y_pred = get_cos_sims(embeddings,test_edges)
     auc_score = roc_auc_score(y_true,y_pred)

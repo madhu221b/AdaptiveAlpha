@@ -21,7 +21,7 @@ from load_dataset import load_dataset
 EPOCHS = 30
 main_path = "../AdaptiveAlpha/"
    
-def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
+def make_one_timestep(g, seed,t=0,path="",model="", test_edges=None, extra_params=dict()):
         '''Defines each timestep of the simulation:
             0. each node makes experiments
             1. loops in the permutation of nodes choosing the INFLUENCED node u (u->v means u follows v, v can influence u)
@@ -37,12 +37,10 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         sim_matrix = None
         if "fpr" in model:
             print("Getting Personalised Page Rank Scores")
-            ppr_scores = recommender_model_pagerank(g, t, model=model, extra_params=extra_params)
-            recos, ppr_scores = get_top_recos_by_ppr_score(g, ppr_scores) 
-            sim_matrix = ppr_scores
+            recos, test_ppr_scores = recommender_model_pagerank(g, t, test_edges, model=model, extra_params=extra_params)
         else:
             print("Generating Node Embeddings")
-            embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
+            embeds = recommender_model_walker(g, t, model=model, extra_params=extra_params)
             all_nodes = g.nodes()
             print("Getting Link Recommendations from {} Model ".format(model))
             recos, cosine_sim = get_top_recos_v2(g,embeds, all_nodes) 
@@ -64,7 +62,7 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         g.remove_edges_from(removed_edges)
         g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
-        return g, sim_matrix
+        return g, sim_matrix if "fpr" not in model else test_ppr_scores
 
 
 def run(name,model,main_seed,extra_params):
@@ -107,10 +105,16 @@ def run(name,model,main_seed,extra_params):
         if not is_file:
             print("File does not exist for time {}, creating now".format(time))
             seed = main_seed+time+1 
-            g_updated, sim_matrix = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            if "fpr" not in model:
+                g_updated, sim_matrix = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params)
+                save_modeldata(sim_matrix, test_edges, true_labels, None, name, model, main_seed, t=time)
+            else:
+                g_updated, ppr_scores_test = make_one_timestep(g.copy(), seed, time, new_path, model, test_edges, extra_params)
+                save_modeldata(None, test_edges, true_labels, ppr_scores_test, name, model, main_seed, t=time)
+
            
             g = g_updated
-            save_modeldata(sim_matrix, test_edges, true_labels,name, model,main_seed,t=time)
+            
             save_metadata(g_updated,name, model,main_seed,t=time)
             # get_disparity(g,cossim,test_edges,true_labels)
         else:
@@ -151,13 +155,13 @@ def save_metadata(g, name, model,seed,t=0):
     print("Saving graph file at, ", fn.replace(".gpickle",""))
 
 
-def save_modeldata(sim_matrix, test_edges, true_labels, name, model,seed,t=0):
+def save_modeldata(sim_matrix, test_edges, true_labels, pred_values, name, model, seed, t=0):
         dict_folder = "./utility/model_{}_name_{}/seed_{}".format(model,name,seed)
         if not os.path.exists(dict_folder): os.makedirs(dict_folder)
         dict_file_name = dict_folder+"/_name{}.pkl".format(name)
 
         # precision, recall = get_model_metrics(g,test_edges,true_labels)
-        auc_score, precision, recall = get_model_metrics_v2(sim_matrix, test_edges, true_labels)
+        auc_score, precision, recall = get_model_metrics_v2(sim_matrix, test_edges, true_labels, pred_values)
         # print("Recall: {}, Precision: {} for hMM:{}, hmm:{} for T={}".format(recall, precision, hMM, hmm,t))
         print("Auc score: {}, for T:{}".format(auc_score,t))
         if not os.path.exists(dict_file_name):
