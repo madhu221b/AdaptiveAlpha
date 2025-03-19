@@ -14,17 +14,17 @@ from org.gesis.lib.io import read_pickle, save_gpickle
 from org.gesis.lib.pagerank import personalized_page_rank
 from org.gesis.lib.fairpagerank import fair_personalized_page_rank
 from load_dataset import load_rice, load_dataset
-# from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
-# from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
-# from walkers.fastfairwalk import FastFairWalk
-# from walkers.fastcrosswalk import FastCrossWalk
+from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
+from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
+from walkers.fastfairwalk import FastFairWalk
+from walkers.fastcrosswalk import FastCrossWalk
 
-# walker_dict = {
-# "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
-# "ffw": FastFairWalk,
-# "fcw": FastCrossWalk,
-# "fastadaptivealphatest" : FastAdaptiveAlphaTest,
-# }
+walker_dict = {
+"fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
+"ffw": FastFairWalk,
+"fcw": FastCrossWalk,
+"fastadaptivealphatest" : FastAdaptiveAlphaTest,
+}
 
 
 # Hyperparameter for node2vec/fairwalk
@@ -58,9 +58,9 @@ def rewiring_list(G, node, number_of_rewiring):
 
 def recommender_model_pagerank(g, t, test_edges, model, extra_params):
     # Get adjacency matrix
-    # adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
- 
-    adj_matrix = nx.adjacency_matrix(g).toarray()   
+    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+    ## NOTE - Never ever use this function. Use nx.to_numpy_array. Please for the love of God.
+    # adj_matrix = nx.adjacency_matrix(g).toarray()  
     adj_matrix = torch.tensor(adj_matrix, dtype=torch.float32)
 
     # Get node attributes

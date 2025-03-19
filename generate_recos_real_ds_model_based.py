@@ -20,8 +20,26 @@ from load_dataset import load_dataset
 
 EPOCHS = 30
 main_path = "../AdaptiveAlpha/"
-   
-def make_one_timestep(g, seed,t=0,path="",model="", test_edges=None, extra_params=dict()):
+
+
+def relabel_nodes_attributes(g, is_reverse=False): # Specifically for tuenti dataset
+    print("Relabeling node attributes for fair page rank")
+    node_attributes = nx.get_node_attributes(g, "group")
+    relabel_dict = dict()
+    for node, group in node_attributes.items():
+        if is_reverse:
+            if group == 1: relabel_dict[node] = 2
+            elif group == 0: relabel_dict[node] = 1
+        else:
+            if group == 2: relabel_dict[node] = 1
+            elif group == 1: relabel_dict[node] = 0
+    
+    assert len(relabel_dict) == g.number_of_nodes()
+    nx.set_node_attributes(g, relabel_dict, "group")
+    return g
+
+
+def make_one_timestep(g, seed, t=0, path="", model="", test_edges=None, extra_params=dict()):
         '''Defines each timestep of the simulation:
             0. each node makes experiments
             1. loops in the permutation of nodes choosing the INFLUENCED node u (u->v means u follows v, v can influence u)
@@ -29,8 +47,7 @@ def make_one_timestep(g, seed,t=0,path="",model="", test_edges=None, extra_param
             3. choose existing links - remove them
             4. add recommended listx
 
-        '''
-                              
+        '''        
         # set seed
         set_seed(seed)
       
@@ -65,7 +82,7 @@ def make_one_timestep(g, seed,t=0,path="",model="", test_edges=None, extra_param
         return g, sim_matrix if "fpr" not in model else test_ppr_scores
 
 
-def run(name,model,main_seed,extra_params):
+def run(name ,model, main_seed, extra_params):
     # try:  
     # Setting seed
     np.random.seed(main_seed)
@@ -95,8 +112,12 @@ def run(name,model,main_seed,extra_params):
         test_edges, true_labels = dict_["test_edges"], dict_["true_labels"]
 
     g = g_train
-
     print("[After sampling] Edges: {} , Nodes: {}".format(g.number_of_edges(),g.number_of_nodes()))
+    
+    if "tuenti" in name:
+        g = relabel_nodes_attributes(g)  
+ 
+    
     iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
     time = 0
 

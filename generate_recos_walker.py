@@ -29,13 +29,13 @@ d = 0.03
 
 main_path = "../AdaptiveAlpha/"
 
-def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
+def make_one_timestep(g, seed, t=0, path="", model="", extra_params=dict()):
         '''Defines each timestep of the simulation:
             0. each node makes experiments
             1. loops in the permutation of nodes choosing the INFLUENCED node u (u->v means u follows v, v can influence u)
             2. loops s (number of interactions times)
             3. choose existing links - remove them
-            4. add recommended listx
+            4. add recommended links
 
         '''
                               
@@ -45,14 +45,13 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
         
         if "fpr" in model:
             print("Getting Personalised Page Rank Scores")
-            ppr_scores = recommender_model_pagerank(g, t, model=model, extra_params=extra_params)
-            recos, ppr_scores = get_top_recos_by_ppr_score(g, ppr_scores) 
+            recos, _ = recommender_model_pagerank(g, t, None, model=model, extra_params=extra_params)
         else:
             print("Generating Node Embeddings")
-            embeds = recommender_model_walker(g,t,model=model,extra_params=extra_params)
+            embeds = recommender_model_walker(g, t, model=model, extra_params=extra_params)
             all_nodes = g.nodes()
             print("Getting Link Recommendations from {} Model ".format(model))
-            recos, cosine_sim = get_top_recos_v2(g,embeds, all_nodes) 
+            recos, _ = get_top_recos_v2(g, embeds, all_nodes) 
         
         
         print("Recommendations Obtained, Now Rewiring the Recommendations")
@@ -66,6 +65,8 @@ def make_one_timestep(g, seed,t=0,path="",model="",extra_params=dict()):
                removed_edges.extend(edges_to_be_removed)
                added_edges.append((u,v))
                new_edges += 1
+            else:
+                print("U:", u, "V: ", v)
             seed += 1
         g.remove_edges_from(removed_edges)
         g.add_edges_from(added_edges)
@@ -98,11 +99,11 @@ def run(hMM, hmm,model,fm, extra_params):
     time = 0
     for time in iterable:
         is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-        is_file_final, _=  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
+        is_file_final, _ =  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
         if not is_file and not is_file_final:
             print("File does not exist for time {}, creating now".format(time))
             seed = MAIN_SEED+time+1 
-            g_updated = make_one_timestep(g.copy(),seed,time,new_path,model,extra_params)
+            g_updated = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params)
             g = g_updated
             save_metadata(g, hMM, hmm, model,fm,t=time)
         else:
