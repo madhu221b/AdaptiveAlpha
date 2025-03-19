@@ -55,7 +55,7 @@ def power_iteration(
         the ``x`` value after convergence (or maximum number of iterations).
     """
     # send tensors to device
-    print("[Pagerank Calcuation - Batch Size] - ", x0.size(1))
+    print("[Pagerank Calculation - Batch Size] - ", x0.size(1))
     MAX_LIMIT = 5000
     device = "cuda"
     # x0 = x0.to(device=device)
@@ -346,9 +346,11 @@ def fair_personalized_page_rank(
     results = list()
     
     P_N = get_fair_adjacency_matrix(adj=adj, node_attr=node_attr, psi=psi)
-    test_scores = torch.zeros(len(test_edges))
-    test_us = torch.tensor([u for u, v in test_edges])
-    test_vs = torch.tensor([v for u, v in test_edges])
+
+    if test_edges is not None:
+        test_scores = torch.zeros(len(test_edges))
+        test_us = torch.tensor([u for u, v in test_edges])
+        test_vs = torch.tensor([v for u, v in test_edges])
    
     adj.fill_diagonal_(1)
     
@@ -356,27 +358,25 @@ def fair_personalized_page_rank(
         ppr_scores = power_iteration(adj=P_N, x0=prepare_x0(indices=indices_batch, n=adj.shape[0]), **kwargs).t()
         
         # non connected neighbors ppr scores
-        adj[indices_batch] = adj[indices_batch].masked_fill(adj[indices_batch] == 1.0, -1000.0)
 
+        adj[indices_batch] = adj[indices_batch].masked_fill(adj[indices_batch] == 1.0, -1000.0)
         adj[indices_batch] += ppr_scores
-        max_ppr_score = torch.argmax(adj[indices_batch], dim=1)
-        tensor_combined = torch.stack((indices_batch, max_ppr_score), dim=1)
+
+        max_ppr_score_nodes = torch.argmax(adj[indices_batch], dim=1)
+        tensor_combined = torch.stack((indices_batch, max_ppr_score_nodes), dim=1)
 
         # Convert the result to a list of tuples
         list_combined = tensor_combined.tolist() 
         results.extend(list_combined)
 
         # find ppr scores for test
-        n_to_indices = {val.item(): idx for idx, val in enumerate(indices_batch)}
-
-         # Use the map to get indices for elements in ppr
-        ppr_indices = torch.tensor([n_to_indices[elem.item()] for elem in test_us if elem in indices_batch]) 
-        
-        
-        u_indices = torch.nonzero(torch.isin(test_us, indices_batch)).squeeze()
-        vs = test_vs[u_indices]
-
-        test_scores[u_indices] = ppr_scores[ppr_indices, vs]
+        if test_edges is not None:
+            n_to_indices = {val.item(): idx for idx, val in enumerate(indices_batch)}
+            # Use the map to get indices for elements in ppr
+            ppr_indices = torch.tensor([n_to_indices[elem.item()] for elem in test_us if elem in indices_batch])          
+            u_indices = torch.nonzero(torch.isin(test_us, indices_batch)).squeeze()
+            vs = test_vs[u_indices]
+            test_scores[u_indices] = ppr_scores[ppr_indices, vs]
 
  
-    return results, test_scores
+    return results, test_scores if test_edges else None
