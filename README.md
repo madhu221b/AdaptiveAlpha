@@ -1,8 +1,8 @@
-# AdaptiveAlpha
-Adaptive Alpha Random Walker where random walks of nodes are biased towards high in-degree nodes in local &amp; non-local neighborhoods.
+# AdaptiveAlpha / Flowalk 
+Flowalk Random Walker where random walks of nodes are biased towards high in-degree nodes in local &amp; non-local neighborhoods.
  - Some code snippets have been borrowed from - https://github.com/gesiscss/Homophilic_Directed_ScaleFree_Networks
 
-(I) Installation: 
+## Installation: 
 ```
 wget https://repo.continuum.io/archive/Anaconda3-2018.12-Linux-x86_64.sh
 bash Anaconda3-2018.12-Linux-x86_64.sh
@@ -22,11 +22,13 @@ pip install scikit-learn
 pip install node2vec
 pip install pandas
 pip install matplotlib
+pip install torch==2.2.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install  dgl -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
 
 ```
 
 
-(II) Scripts to Generate Recommendations:
+## Generate Recommendations:
 
 (1) generate_recos_real_ds_model_based.py : Generate Recommendations with Utility & Fairness Scores for Real Datasets
 
@@ -37,7 +39,7 @@ Usage -
 | argument      | values|description                                                                  |
 |----------------------|-------|-----------------------------------------------------------------------|
 | model | n2v (Node2Vec) , fw (Fairwalk), cw (Crosswalk), adaptivealpha (Adaptive Alpha), nlindlocalind (NonLocal Indegree Walker) | Link Recommenders to generate Recommendations  |
-| name | rice, facebook | Dataset Name |
+| name | rice, pokec, tuenti | Dataset Name |
 | alpha | 1.0 | Optional used with model - nlindlocalind. As part of sanity check - alpha_g = 1 |
 
 
@@ -51,7 +53,8 @@ Usage -
 | hmm | {0.0,..0.9} | In-class Minority Class Homophily        |
 | fm | {0.1,0.2,0.3,0.4} | Minority Size Fraction      |
 
-(III) Script to Generate Heatmap Plots:
+##  Visualization Plots:
+(1) Generate Heatmap
 ```python generate_heatmap_centrality.py --model <<>> --reco after --group 0 --centrality betweenness ```
 
 An example  - 
@@ -64,4 +67,4 @@ An example  -
 | diff | true/false | Visibility - True , Fair Betweenness Centrality (Fairness) - False  |
 | group | 0/1 | 0 - Majority , 1 - Minority |
 
-(IV)  Script for Visualization Plots:
+
