@@ -45,7 +45,7 @@ pip install  dgl -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
 
 ## Generate Recommendations:
 
-### (1) Generate Recommendations with Utility & Betweenness Centrality Disparity for Real Datasets
+### (1.1) Generate Recommendations with Utility & Betweenness Centrality Disparity for Real Datasets
 
 Usage - 
 
@@ -57,6 +57,18 @@ Usage -
 | name | rice, pokec, tuenti | Dataset Name |
 | alpha | {0.3, 0.5, 0.7}  | Used with fastadaptivealphatest (Flowalk with fixed alpha) |
 | psi | {0.2 (Rice), 0.5 (Pokec), 0.4 (Tuenti) }  | Used with fpr (Fairness Aware PageRank)  |
+|seed | {42, 420, 4200}  | Setting fixed run for every run|
+
+### (1.2) Generate Random Recommendations with Utility & Betweenness Centrality Disparity for Real Datasets 
+
+Usage - 
+
+```python generate_recos_at_random_ds.py  --name name_arg```
+
+| argument      | values|description                                                                  |
+|----------------------|-------|-----------------------------------------------------------------------|
+| name | rice, pokec, tuenti | Dataset Name |
+|seed | {42, 420, 4200}  | Setting fixed run for every run|
 
 
 ###  (2) Generate Recommendations for Betweenness Centrality Disparity for Synthetic Datasets
@@ -71,18 +83,35 @@ Usage -
 | alpha | {0.3, 0.5, 0.7}  | Used with fastadaptivealphatest (Flowalk with fixed alpha) |
 | psi | {0.3}  | Used with fpr (Fairness Aware PageRank)  |
 
+(We provide ```start``` and ```end``` parameter to run a range of homophilic values parallely - see main caller of the file ```generate_recos_walker.py```)
 ##  Visualization Plots:
-(1) Generate Heatmap
-```python generate_heatmap_centrality.py --model <<>> --reco after --group 0 --centrality betweenness ```
+### (1) Generate Heatmap of Betweenness Centrality Disparity
+```python generate_heatmap_centrality.py --model model_arg --reco reco_arg --group group_arg  --diff```
 
 An example  - 
 
-``` python generate_heatmap_centrality.py --model fw_p_1.0_q_1.0_fm_0.3 --reco after --group 0 --centrality betweenness --diff ```
-| argument      | values|description                                                                  |
+``` python generate_heatmap_centrality.py --model ffw_p_1.0_q_1.0_fm_0.3 --reco after --group 0 --diff ```
+| argument | values|description                                                                  |
 |----------------------|-------|-----------------------------------------------------------------------|
-| model | n2v_p_x_q_x_fm_x (Node2Vec) , fw_p_x_q_x_fm_x(Fairwalk), cw_alpha_x_p_x_fm_x (Crosswalk), adaptivealpha_beta_x_fm_x (Adaptive Alpha) | Add the appropriate parameters of the model you used while generating recommendations in the x space |
+| model | ffw_p_x_q_x_fm_x(Fairwalk), fcw_alpha_x_p_x_fm_x (Crosswalk), fastadaptivealphatest_beta_2.0_fm_0.3 (Flowalk with varying alpha), fastadaptivealphatestfixed_alpha_xx_beta_2.0_fm_0.3 (Flowalk with fixed alpha), fpr_psi_0.3_fm_0.3 (Fair PageRank) | Add the appropriate parameters of the model you used while generating recommendations in the x space |
 | reco | before/after |before generates recommendations of DPAH (baseline) model |
-| diff | true/false | Visibility - True , Fair Betweenness Centrality (Fairness) - False  |
 | group | 0/1 | 0 - Majority , 1 - Minority |
 
+### (2) Generate  Betweenness Centrality Disparity and Utility for Real Datasets - 
+
+ Betweenness Centrality Disparity:  In ```visualize_plots.py``` function - ```plot_fair_metrics_v2()```
+ 
+ Utility:  In ```visualize_plots.py``` function - ```plot_utility_metrics()```
+
+Betweenness Centrality for Pokec and Tuenti Datasets is too expensive and time-intensive to calculate by just Networkx Library - used  [GPU accelerated NetworkX backend](https://rapids.ai/nx-cugraph/)
+
+Notebook is [https://github.com/madhu221b/AdaptiveAlpha/blob/main/Copy_of_accelerated_networkx_demo.ipynb](here).
+
+### (3) Generate Indegree Centrality Disparity, Statistical Parity and Equality of Representation for Real Datasets - 
+
+ Indegree Centrality Disparity:  In ```visualize_plots.py``` function - ```get_models_vs_indegree()```
+ 
+ Statistical Parity:  In ```visualize_plots.py``` function - ```get_statistical_imparity_all()```
+
+ Equality of Representation:  In ```visualize_plots.py``` function - ```get_er_network_all()```
 
