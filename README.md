@@ -3,10 +3,20 @@ Flowalk Random Walker where random walks of nodes are biased towards high in-deg
  - Some code snippets have been borrowed from - https://github.com/gesiscss/Homophilic_Directed_ScaleFree_Networks
 
 ## Dataset Information
-(1) Synthetic Datasets -
+(1) Synthetic Datasets - Dataset from the paper - [Inequality and inequity in network-based ranking and recommendation algorithms](https://www.nature.com/articles/s41598-022-05434-1). Available in the repository. 
+
+
+![image](https://github.com/user-attachments/assets/63c9c0ed-981c-4225-bdde-c48ceb7cfd62)
+
+
 
 
 (2) Empirical Datasets - 
+- Rice. Dataset from the paper - [Crosswalk](https://github.com/ahmadkhajehnejad/CrossWalk/tree/master/data/rice).
+- Pokec and Tuenti - Datasets available from the authors of the paper - [The Effect of Homophily on Disparate Visibility of Minorities in People Recommender Systems](https://ojs.aaai.org/index.php/ICWSM/article/view/7288)
+
+  ![image](https://github.com/user-attachments/assets/9e295187-8a01-4993-8f73-0ff717044fd4)
+
 ## Installation: 
 ```
 wget https://repo.continuum.io/archive/Anaconda3-2018.12-Linux-x86_64.sh
