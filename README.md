@@ -45,28 +45,31 @@ pip install  dgl -f https://data.dgl.ai/wheels/torch-2.2/cu121/repo.html
 
 ## Generate Recommendations:
 
-(1) generate_recos_real_ds_model_based.py : Generate Recommendations with Utility & Fairness Scores for Real Datasets
+### (1) Generate Recommendations with Utility & Betweenness Centrality Disparity for Real Datasets
 
 Usage - 
 
-```python generate_recos_real_ds_model_based.py --model <<>> --name <<>>```
+```python generate_recos_real_ds_model_based.py --model model_arg --name name_arg```
 
 | argument      | values|description                                                                  |
 |----------------------|-------|-----------------------------------------------------------------------|
-| model | n2v (Node2Vec) , fw (Fairwalk), cw (Crosswalk), adaptivealpha (Adaptive Alpha), nlindlocalind (NonLocal Indegree Walker) | Link Recommenders to generate Recommendations  |
+| model | ffw (Fairwalk), fcw (Crosswalk), fastadaptivealphatestfixed (Flowalk with varying alpha), fastadaptivealphatest (Flowalk with fixed alpha), fpr (Fairness Aware PageRank) | Link Recommenders to generate Recommendations  |
 | name | rice, pokec, tuenti | Dataset Name |
-| alpha | 1.0 | Optional used with model - nlindlocalind. As part of sanity check - alpha_g = 1 |
+| alpha | {0.3, 0.5, 0.7}  | Used with fastadaptivealphatest (Flowalk with fixed alpha) |
+| psi | {0.2 (Rice), 0.5 (Pokec), 0.4 (Tuenti) }  | Used with fpr (Fairness Aware PageRank)  |
 
 
-(2) generate_recos_walker.py - Generate Recommendations with Fairness Scores for Synthetic Datasets
+###  (2) Generate Recommendations for Betweenness Centrality Disparity for Synthetic Datasets
 
-```python generate_recos_walker.py --model << >> --hmm << >> --hMM << >>```
+```python generate_recos_walker.py --model model_arg --hmm hmm_arg --hMM hMM_arg```
 | argument      | values|description                                                                  |
 |----------------------|-------|-----------------------------------------------------------------------|
-| model | n2v (Node2Vec) , fw (Fairwalk), cw (Crosswalk), adaptivealpha (Adaptive Alpha) | Link Recommenders to generate Recommendations  |
+| model | ffw (Fairwalk), fcw (Crosswalk), fastadaptivealphatestfixed (Flowalk with varying alpha), fastadaptivealphatest (Flowalk with fixed alpha), fpr (Fairness Aware PageRank) | Link Recommenders to generate Recommendations  |
 | hMM | {0.0,..0.9} |In-class Majority Class Homophily |
-| hmm | {0.0,..0.9} | In-class Minority Class Homophily        |
-| fm | {0.1,0.2,0.3,0.4} | Minority Size Fraction      |
+| hmm | {0.0,..0.9} | In-class Minority Class Homophily |
+| fm | {0.1,0.2,0.3,0.4} | Minority Size Fraction |
+| alpha | {0.3, 0.5, 0.7}  | Used with fastadaptivealphatest (Flowalk with fixed alpha) |
+| psi | {0.3}  | Used with fpr (Fairness Aware PageRank)  |
 
 ##  Visualization Plots:
 (1) Generate Heatmap
