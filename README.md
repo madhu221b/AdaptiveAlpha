@@ -2,6 +2,13 @@
 Flowalk Random Walker where random walks of nodes are biased towards high in-degree nodes in local &amp; non-local neighborhoods.
  - Some code snippets have been borrowed from - https://github.com/gesiscss/Homophilic_Directed_ScaleFree_Networks
 
+## Algorithms 
+![image](https://github.com/user-attachments/assets/b04ab08d-d678-470f-ba2f-852035ec8f1d)
+
+
+![image](https://github.com/user-attachments/assets/dac146a3-7b7e-4229-89c5-85c2109776c6)
+
+
 ## Dataset Information
 (1) Synthetic Datasets - Dataset from the paper - [Inequality and inequity in network-based ranking and recommendation algorithms](https://www.nature.com/articles/s41598-022-05434-1). Available in the repository. 
 
