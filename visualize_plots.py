@@ -159,7 +159,7 @@ def avg_indegree_due_to_grp(g, grp):
 
 def check_avg_indegree(fm=0.3):
     epsilon = 1e-6
-    file_path = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/DPAH_fm_{}".format(fm)
+    file_path = main_path+"DPAH_fm_{}".format(fm)
     graph_files = [os.path.join(file_path,file_name) for file_name in os.listdir(file_path) if "netmeta" not in file_name and ".gpickle" in file_name]
     for graph_file in graph_files:
         g = read_graph(graph_file)
@@ -249,7 +249,7 @@ def plot_utility_metrics_syn(syn_ds,models,fm=0.3):
         for model in models:
             pre_list, recall_list, auc_list = [],[],[]
             for seed in seed_list:
-                file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/utility/model_{}_fm_{}/seed_{}/_hMM{}_hmm{}.pkl".format(model,fm,seed,hMM,hmm)
+                file_name = main_path+"utility/model_{}_fm_{}/seed_{}/_hMM{}_hmm{}.pkl".format(model,fm,seed,hMM,hmm)
                 pre, recall, acc, auc = print_utility(file_name)
                 pre_list.append(pre)
                 recall_list.append(recall)
@@ -354,7 +354,6 @@ def plot_fair_metrics_syn(syn_ds,models,fm=0.3):
     for model in models:
         vis_list = []
         for seed in seed_list:
-            # file_name = "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/model_{}_fm_{}/seed_{}/{}-N1000-fm{}-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,fm,seed,model,fm,hMM,hmm)
             file_name = main_path+"{}_fm_{}/{}-N1000-fm{}-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,fm,model,fm,hMM,hmm)
             vis_dict = print_visibility(file_name)
             vis_list.append(vis_dict)
@@ -574,7 +573,7 @@ def plot_heg_hog(hMM,hmm):
     group_dict = {0:"M", 1:"m"}
 
     for model in models:
-        path =  "/home/mpawar/Homophilic_Directed_ScaleFree_Networks/{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,model,hMM,hmm)
+        path =  main_path+"{}_fm_0.3/{}-N1000-fm0.3-d0.03-ploM2.5-plom2.5-hMM{}-hmm{}_t_29.gpickle".format(model,model,hMM,hmm)
         fair_dict = print_fairness(path)
         g = read_graph(path)
         node_attrs = nx.get_node_attributes(g,"group")
