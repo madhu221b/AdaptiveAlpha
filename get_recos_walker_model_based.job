@@ -17,69 +17,7 @@ cd $HOME/Homophilic_Directed_ScaleFree_Networks
 
 source activate lr_env_v4
 
-# srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 1.0 --beta 2.0  --name facebook --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav3 --beta 2.0 --name facebook_syn_2 --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0 --name twitter --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0  --name twitter --seed 420
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0 --name twitter --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybeta --beta 2.0  --name facebook_syn_3 --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0 --name facebook_locale --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0  --name facebook_locale --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0 --name facebook_locale --seed 420
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0 --name facebook_locale --seed 4200
-
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0  --name rice --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0 --name facebook_syn_2 --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0 --name facebook_syn_3 --seed 42
-# srun python generate_recos_real_ds_model_based.py --model beepboopv3 --beta 2.0  --name facebook_syn_3 --seed 420
-# srun python generate_recos_real_ds_model_based.py --model beepboopv3 --beta 2.0  --name facebook_syn_3 --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model beepboopv3 --beta 2.0 --name facebook_locale --seed 420
-# srun python generate_recos_real_ds_model_based.py --model beepboopv3 --beta 2.0 --name facebook_locale --seed 4200
+# srun python generate_recos_real_ds_model_based.py --model  ffw  --name pokec --seed 42
 
 
-# srun python generate_recos_real_ds_model_based.py --model fw  scancel--name facebook_locale --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0 --name twitter_climate --seed 420
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0  --name twitter_climate --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0 --name rice --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model indegreevarybetav2 --beta 2.0 --name facebook --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model beepboopv2 --beta 2.0 --name rice --seed 4200
 
-# srun python generate_recos_real_ds_model_based.py --model n2v --name facebook_locale --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model n2v --name facebook --seed 420
-# srun python generate_recos_real_ds_model_based.py --model n2v --name facebook --seed 4200
-
-# srun python generate_recos_real_ds_model_based.py --model nonlocaladaptivealpha  --beta 2.0 --name facebook_locale --seed 42
-# srun python generate_recos_real_ds_model_based.py --model nonlocaladaptivealpha  --beta 2.0 --name facebook_locale --seed 420
-# srun python generate_recos_real_ds_model_based.py --model nonlocaladaptivealpha   --beta 2.0 --name facebook_locale --seed 4200
-# srun python generate_recos_real_ds_model_based.py --model nonlocalindegreelocalrandom --alpha 0.7 --beta 2.0 --name facebook --seed 420
-
-srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 1.0  --beta 2.0 --name facebook_locale --seed 4200
-
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta -2.0  --name twitter --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0  --name facebook_locale --seed 42
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0 --name facebook --seed 420
-# srun python generate_recos_real_ds_model_based.py --model indegree --beta 2.0  --name facebook --seed 4200
-
-# srun python generate_recos_model_based.py --model nonlocaladaptivealpha --beta 2.0  --hmm 0.5 --hMM 0.5 --seed 42
-# srun python generate_recos_model_based.py --model nonlocaladaptivealpha --beta 2.0  --hmm 0.5 --hMM 0.5 --seed 420
-# srun python generate_recos_model_based.py --model nonlocaladaptivealpha --beta 2.0  --hmm 0.5 --hMM 0.5 --seed 4200
-
-# srun python generate_recos_model_based.py --model beepboop --beta 2.0  --hmm 0.2 --hMM 0.2 --seed 42
-# srun python generate_recos_model_based.py --model beepboop --beta 2.0  --hmm 0.2 --hMM 0.2 --seed 420
-# srun python generate_recos_model_based.py --model beepboop --beta 2.0  --hmm 0.2  --hMM 0.2  --seed 4200
-
-# srun python generate_recos_model_based.py --model fw  --hmm 0.5 --hMM 0.5 --seed 42
-# srun python generate_recos_model_based.py --model fw  --hmm 0.5 --hMM 0.5 --seed 420
-# srun python generate_recos_model_based.py --model fw  --hmm 0.5 --hMM 0.5 --seed 4200
-
-# srun python generate_recos_model_based.py --model  beepboopv2 --beta 2.0  --hmm 0.2 --hMM 0.2 --seed 42
-# srun python generate_recos_model_based.py --model  nlindlocalind --alpha 0.3 --beta 2.0  --hmm 0.8 --hMM 0.2 --seed 42
-# srun python generate_recos_model_based.py --model  nlindlocalind --alpha 0.5 --beta 2.0  --hmm 0.8 --hMM 0.2 --seed 42
-# srun python generate_recos_model_based.py --model  nlindlocalind --alpha 0.7 --beta 2.0  --hmm 0.8 --hMM 0.2 --seed 42
-# srun python generate_recos_model_based.py --model  nlindlocalind --alpha 1.0 --beta 2.0  --hmm 0.8 --hMM 0.2 --seed 42
-
-# srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 0.0 --beta 2.0  --name rice --seed 420
-# srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 0.3 --beta 2.0 --name rice --seed 420
-# srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 0.5 --beta 2.0 --name rice --seed 420
-# srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 0.7 --beta 2.0  --name rice --seed 420
-# srun python generate_recos_real_ds_model_based.py --model  nlindlocalind --alpha 1.0 --beta 2.0  --name rice --seed 420
