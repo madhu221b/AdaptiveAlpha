@@ -10,6 +10,6 @@
 #SBATCH --output=slurm_output_%A.out
 
 
-CMD="/home/mpawar/anaconda3/envs/lr_env/bin/python generate_recos_walker.py --model cw --hmm 0.2 --hMM 0.8"
+CMD="python generate_recos_walker.py --model cw --hmm 0.2 --hMM 0.8"
 
 $CMD
