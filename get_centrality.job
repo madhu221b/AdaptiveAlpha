@@ -12,7 +12,7 @@ module purge
 module load 2022
 module load Anaconda3/2022.05
 
-cd $HOME/Homophilic_Directed_ScaleFree_Networks
+cd $HOME/AdaptiveAlpha
 source activate lr_env_v4
 
 srun  python3 generate_heatmap_centrality.py --model  nlindlocalind_alpha_0.5_beta_2.0_fm_0.3 --reco after --centrality betweenness
