@@ -11,7 +11,7 @@ from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, \
-                                    recommender_model_pagerank, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, read_graph
+                                    recommender_model_pagerank, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, read_graph, rewiring_list_pf
 from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2, get_disparity
 from joblib import delayed
 from joblib import Parallel
@@ -50,6 +50,7 @@ def make_one_timestep(g, seed, t=0, path="", model="", test_edges=None, extra_pa
         '''        
         # set seed
         set_seed(seed)
+        del_option = model.split("del_")[-1]
       
         sim_matrix = None
         if "fpr" in model:
@@ -71,12 +72,24 @@ def make_one_timestep(g, seed, t=0, path="", model="", test_edges=None, extra_pa
             seed += i
             set_seed(seed)
             if not g.has_edge(u,v):
-               edges_to_be_removed = rewiring_list(g, u, 1)
-               removed_edges.extend(edges_to_be_removed)
-               added_edges.append((u,v))
-               new_edges += 1
+
+                if del_option != "no": 
+                    if del_option == "pref":
+                       edges_to_be_removed = rewiring_list_pf(g, u, 1)
+                    else: # random out-link removal
+                        edges_to_be_removed = rewiring_list(g, u, 1)
+                    removed_edges.extend(edges_to_be_removed)
+
+                added_edges.append((u,v))
+                new_edges += 1
+            else:
+                print("U:", u, "V: ", v)
             seed += 1
-        g.remove_edges_from(removed_edges)
+
+        if del_option != "no":    
+            print("edges removed in total: ", len(removed_edges))
+            g.remove_edges_from(removed_edges)
+        
         g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
         return g, sim_matrix if "fpr" not in model else test_ppr_scores
@@ -135,7 +148,6 @@ def run(name ,model, main_seed, extra_params):
 
            
             g = g_updated
-            
             save_metadata(g_updated,name, model,main_seed,t=time)
             # get_disparity(g,cossim,test_edges,true_labels)
         else:
@@ -210,8 +222,7 @@ if __name__ == "__main__":
     parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=2)
     parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.5)
     parser.add_argument("--psi", help="Fair PageRank - psi - LFPR_N algorithm", type=float, default=0.5)
-
-   
+    parser.add_argument("--deletion", help="rand/no/pref", type=str, default="rand")
     args = parser.parse_args()
     
     start_time = time.time()
@@ -233,6 +244,7 @@ if __name__ == "__main__":
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
 
+    model = model+"_del_"+args.deletion
     run(name=args.name, model=model,main_seed=args.seed,extra_params=extra_params)
 
 

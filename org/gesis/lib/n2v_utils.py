@@ -56,6 +56,18 @@ def rewiring_list(G, node, number_of_rewiring):
         nodes_to_be_unfollowed = np.random.permutation(node_neighbors)[:number_of_rewiring]
         return list(map(lambda x: tuple([node, x]), nodes_to_be_unfollowed))
 
+
+def rewiring_list_pf(G, node, number_of_rewiring):
+        nodes_to_be_unfollowed = []
+        node_neighbors = np.array(list(G.successors(node)))
+        weights = [G.in_degree(v) for v in node_neighbors]
+        total = sum(weights)
+        probabilities = [w / total for w in weights]
+        if len(node_neighbors) > 0:
+           nodes_to_be_unfollowed = np.random.choice(node_neighbors, p=probabilities, size=number_of_rewiring)
+        
+        return list(map(lambda x: tuple([node, x]), nodes_to_be_unfollowed))
+
 def recommender_model_pagerank(g, t, test_edges, model, extra_params):
     # Get adjacency matrix
     adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
