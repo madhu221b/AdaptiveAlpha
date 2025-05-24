@@ -11,7 +11,7 @@ from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model_pagerank, \
                                     recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, \
-                                     read_graph, recommender_model_dfgnn
+                                    read_graph, recommender_model_dfgnn, rewiring_list_pf
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -41,6 +41,7 @@ def make_one_timestep(g, seed, t=0, path="", model="", extra_params=dict()):
                               
         # set seed
         set_seed(seed)
+        del_option = model.split("del_")[-1]
       
         
         if "fpr" in model:
@@ -67,14 +68,24 @@ def make_one_timestep(g, seed, t=0, path="", model="", extra_params=dict()):
             seed += i
             set_seed(seed)
             if not g.has_edge(u,v):
-               edges_to_be_removed = rewiring_list(g, u, 1)
-               removed_edges.extend(edges_to_be_removed)
-               added_edges.append((u,v))
-               new_edges += 1
+
+                if del_option != "no": 
+                    if del_option == "pref":
+                       edges_to_be_removed = rewiring_list_pf(g, u, 1)
+                    else: # random out-link removal
+                        edges_to_be_removed = rewiring_list(g, u, 1)
+                    removed_edges.extend(edges_to_be_removed)
+
+                added_edges.append((u,v))
+                new_edges += 1
             else:
                 print("U:", u, "V: ", v)
             seed += 1
-        g.remove_edges_from(removed_edges)
+
+        if del_option != "no":    
+            print("edges removed in total: ", len(removed_edges))
+            g.remove_edges_from(removed_edges)
+        
         g.add_edges_from(added_edges)
         print("No of new edges added: ", new_edges)
         return g
@@ -85,7 +96,7 @@ def run(hMM, hmm,model,fm, extra_params):
     # # Setting seed
     np.random.seed(MAIN_SEED)
     random.seed(MAIN_SEED)
-    folder_path = main_path+"/{}_fm_{}".format(model,fm)
+    folder_path = main_path+f"/{model}_fm_{fm}"
     new_filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm) +".gpickle"
     new_path = os.path.join(folder_path, new_filename) 
     if os.path.exists(new_path): # disabling this condition
@@ -104,8 +115,8 @@ def run(hMM, hmm,model,fm, extra_params):
     iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
     time = 0
     for time in iterable:
-        is_file, g_obj =  is_file_exists(hMM,hmm,model,fm,time)
-        is_file_final, _ =  is_file_exists(hMM,hmm,model,fm,EPOCHS-1)
+        is_file, g_obj =  is_file_exists(hMM,hmm, model,fm,time)
+        is_file_final, _ =  is_file_exists(hMM,hmm, model,fm,EPOCHS-1)
         if not is_file and not is_file_final:
             print("File does not exist for time {}, creating now".format(time))
             seed = MAIN_SEED+time+1 
@@ -121,7 +132,7 @@ def run(hMM, hmm,model,fm, extra_params):
     #     print("Error occured at hMM {}, hmm {}: {}".format(hMM,hmm,err))
 
 
-def is_file_exists(hMM, hmm, model,fm,t):
+def is_file_exists(hMM, hmm, model, fm, t):
     folder_path = "../AdaptiveAlpha/{}_fm_{}".format(model,fm)
     filename = get_filename(model, N, fm, d, YM, Ym, hMM, hmm)
     fn = os.path.join(folder_path,'{}_t_{}.gpickle'.format(filename,t))
@@ -167,6 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.7)
     
     parser.add_argument("--psi", help="Fair PageRank - psi - LFPR_N algorithm", type=float, default=0.5)
+    parser.add_argument("--deletion", help="rand/no/pref", type=str, default="rand")
     args = parser.parse_args()
     
     start_time = time.time()
@@ -189,6 +201,9 @@ if __name__ == "__main__":
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
+
+
+    model = model+"_del_"+args.deletion
     # run(args.hMM, args.hmm, model=model, fm=args.fm, extra_params=extra_params)
 
     start_idx, end_idx = args.start, args.end
