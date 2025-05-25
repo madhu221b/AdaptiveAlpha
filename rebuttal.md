@@ -9,7 +9,11 @@
 
 ### 2.  Link Deletion Analysis
 
-<img width="956" alt="image" src="https://github.com/user-attachments/assets/84782054-cfff-4eae-8f06-12982e7b9ee6" />
+<img width="961" alt="image" src="https://github.com/user-attachments/assets/7a9fe092-e4fe-47cc-8d8b-d4ec1ca5572a" />
 
+
+
+### 3.  Additional Baseline - On Generalized Degree Fairness in Graph Neural Networks (DFGNN)
+<img width="852" alt="image" src="https://github.com/user-attachments/assets/6f9867ae-2a83-4a86-83ad-fe9ca78b000d" />
 
 
