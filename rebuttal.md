@@ -8,10 +8,17 @@
 ![image](https://github.com/user-attachments/assets/f0fcb51b-ef2c-4667-ab27-7e39291f7ae6)
 
 ### 2.  Link Deletion Analysis
-
+#### 2.1 Synthetic Networks
 <img width="961" alt="image" src="https://github.com/user-attachments/assets/7a9fe092-e4fe-47cc-8d8b-d4ec1ca5572a" />
 
-<img width="1203" alt="image" src="https://github.com/user-attachments/assets/0815a822-942d-424b-9393-f81be5173ed1" />
+#### 2.2 Empirical Networks 
+##### BC Disparity 
+![image](https://github.com/user-attachments/assets/144dc203-d927-4651-bb24-af3112f0d20e)
+
+
+##### AUC Scores
+![image](https://github.com/user-attachments/assets/b765f44c-db2d-4161-accb-609371dc2133)
+
 
 
 ### 3.  Additional Baseline - On Generalized Degree Fairness in Graph Neural Networks (DFGNN)
