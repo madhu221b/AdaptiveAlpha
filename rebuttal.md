@@ -14,6 +14,11 @@
 
 
 ### 3.  Additional Baseline - On Generalized Degree Fairness in Graph Neural Networks (DFGNN)
-<img width="852" alt="image" src="https://github.com/user-attachments/assets/6f9867ae-2a83-4a86-83ad-fe9ca78b000d" />
+<img width="845" alt="image" src="https://github.com/user-attachments/assets/825fa6d3-fbf8-4921-8d67-e76180bed670" />
+
+<img width="1031" alt="image" src="https://github.com/user-attachments/assets/718b4b73-994b-4071-8f83-aade5dede65b" />
+
+
+
 
 
