@@ -22,9 +22,16 @@
 
 
 ### 3.  Additional Baseline - On Generalized Degree Fairness in Graph Neural Networks (DFGNN)
+#### 3.1 Synthetic Networks
 <img width="845" alt="image" src="https://github.com/user-attachments/assets/825fa6d3-fbf8-4921-8d67-e76180bed670" />
 
-<img width="1031" alt="image" src="https://github.com/user-attachments/assets/718b4b73-994b-4071-8f83-aade5dede65b" />
+
+#### 3.2 Empirical Networks 
+##### BC Disparity 
+![image](https://github.com/user-attachments/assets/80e02826-26e1-4590-88aa-5ee824b0751b)
+
+##### AUC Scores
+![image](https://github.com/user-attachments/assets/f8f237eb-0ed9-4763-8e84-27af66932d75)
 
 
 
