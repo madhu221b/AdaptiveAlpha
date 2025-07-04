@@ -11,7 +11,7 @@ from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model_pagerank, \
                                     recommender_model, recommender_model_cw, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, \
-                                     read_graph
+                                     read_graph, recommender_model_dfgnn
 from joblib import delayed
 from joblib import Parallel
 from collections import Counter
@@ -46,6 +46,12 @@ def make_one_timestep(g, seed, t=0, path="", model="", extra_params=dict()):
         if "fpr" in model:
             print("Getting Personalised Page Rank Scores")
             recos, _ = recommender_model_pagerank(g, t, None, model=model, extra_params=extra_params)
+        if "dfgnn" in model: # On Generalized Degree Fairness in Graph Neural Networks
+            print("Getting  embeddings from dfgnn")
+            embeds = recommender_model_dfgnn(g, t, None, model=model, extra_params=extra_params)
+            all_nodes = g.nodes()
+            print(f"Getting Link Recommendations from {model} Model ")
+            recos, _ = get_top_recos_v2(g, embeds, all_nodes) 
         else:
             print("Generating Node Embeddings")
             embeds = recommender_model_walker(g, t, model=model, extra_params=extra_params)
@@ -105,7 +111,8 @@ def run(hMM, hmm,model,fm, extra_params):
             seed = MAIN_SEED+time+1 
             g_updated = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params)
             g = g_updated
-            save_metadata(g, hMM, hmm, model,fm,t=time)
+            if time == EPOCHS - 1:
+               save_metadata(g, hMM, hmm, model,fm,t=time)
         else:
             print("File exists for time {}, loading it... ".format(time))
             g = g_obj
@@ -177,6 +184,8 @@ if __name__ == "__main__":
     elif args.model in ["fpr"]:
         model = args.model + "_psi_{}".format(args.psi)
         extra_params = {"psi":args.psi}
+    elif args.model in ["dfgnn"]:
+        model = args.model
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}

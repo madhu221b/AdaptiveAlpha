@@ -13,18 +13,19 @@ from org.gesis.lib.cw_utils import get_upweighted_weights
 from org.gesis.lib.io import read_pickle, save_gpickle
 from org.gesis.lib.pagerank import personalized_page_rank
 from org.gesis.lib.fairpagerank import fair_personalized_page_rank
+from org.gesis.lib.DegFairGNN.main_lp import _get_node_embeddings_gnn
 from load_dataset import load_rice, load_dataset
-from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
-from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
-from walkers.fastfairwalk import FastFairWalk
-from walkers.fastcrosswalk import FastCrossWalk
+# from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
+# from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
+# from walkers.fastfairwalk import FastFairWalk
+# from walkers.fastcrosswalk import FastCrossWalk
 
-walker_dict = {
-"fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
-"ffw": FastFairWalk,
-"fcw": FastCrossWalk,
-"fastadaptivealphatest" : FastAdaptiveAlphaTest,
-}
+# walker_dict = {
+# "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
+# "ffw": FastFairWalk,
+# "fcw": FastCrossWalk,
+# "fastadaptivealphatest" : FastAdaptiveAlphaTest,
+# }
 
 
 # Hyperparameter for node2vec/fairwalk
@@ -75,6 +76,9 @@ def recommender_model_pagerank(g, t, test_edges, model, extra_params):
     ppr_scores = fair_personalized_page_rank(adj_matrix, node_tensor, indices, test_edges, alpha=0.15, psi=extra_params["psi"])
     return ppr_scores
 
+def recommender_model_dfgnn(g, t, model, extra_params):
+    embeddings = _get_node_embeddings_gnn(g, is_syn=True).cpu()
+    return embeddings
 
 
 
