@@ -11,7 +11,8 @@ from org.gesis.lib import io
 from org.gesis.lib.io import create_subfolders
 from org.gesis.lib.io import save_csv
 from org.gesis.lib.n2v_utils import set_seed, rewiring_list, recommender_model_walker, recommender_model, recommender_model_cw, \
-                                    recommender_model_pagerank, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, read_graph
+                                    recommender_model_pagerank, get_top_recos,get_top_recos_v2, get_top_recos_by_ppr_score, read_graph, \
+                                     recommender_model_dfgnn
 from org.gesis.lib.model_utils import get_train_test_graph, get_model_metrics, get_model_metrics_v2, get_disparity
 from joblib import delayed
 from joblib import Parallel
@@ -45,7 +46,7 @@ def make_one_timestep(g, seed, t=0, path="", model="", test_edges=None, extra_pa
             1. loops in the permutation of nodes choosing the INFLUENCED node u (u->v means u follows v, v can influence u)
             2. loops s (number of interactions times)
             3. choose existing links - remove them
-            4. add recommended listx
+            4. add recommended links
 
         '''        
         # set seed
@@ -55,6 +56,13 @@ def make_one_timestep(g, seed, t=0, path="", model="", test_edges=None, extra_pa
         if "fpr" in model:
             print("Getting Personalised Page Rank Scores")
             recos, test_ppr_scores = recommender_model_pagerank(g, t, test_edges, model=model, extra_params=extra_params)
+        elif "dfgnn" in model: # On Generalized Degree Fairness in Graph Neural Networks
+            print("Getting  embeddings from dfgnn")
+            embeds = recommender_model_dfgnn(g, t, model=model, extra_params=extra_params)
+            all_nodes = g.nodes()
+            print(f"Getting Link Recommendations from {model} Model ")
+            recos, cosine_sim = get_top_recos_v2(g, embeds, all_nodes) 
+            sim_matrix = cosine_sim
         else:
             print("Generating Node Embeddings")
             embeds = recommender_model_walker(g, t, model=model, extra_params=extra_params)
