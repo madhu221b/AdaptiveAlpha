@@ -6,6 +6,7 @@ from facebook_scrap import get_graph
 # from facebook_scrap import get_graph_syn
 from org.gesis.lib.io import save_gpickle, read_pickle
 from littleballoffur.exploration_sampling import ForestFireSampler
+import dgl
 
 def get_edge_info(g):
     node_attrs = nx.get_node_attributes(g, "group")
@@ -205,6 +206,23 @@ def load_pokec():
     print("isolated nodes: ", len(list(nx.isolates(g))))
     return g
 
+def load_pokecn():
+    path = "./data/pokecn/pokecn.bin"
+    glist, _ = dgl.load_graphs(path)
+    dgl_graph = glist[0]
+
+    # Convert to NetworkX (without attributes yet)
+    nx_graph = dgl.to_networkx(dgl_graph)
+
+    # Extract 'sensitive' feature (Tensor of shape [num_nodes])
+    sensitive_attr = dgl_graph.ndata["sensitive"]
+
+    # Add 'sensitive' as a node attribute in NetworkX
+    for nid in range(dgl_graph.num_nodes()):
+        nx_graph.nodes[nid]["sensitive"] = int(sensitive_attr[nid].item()) 
+
+    return nx_graph
+
 def load_dataset(name):
     if name == "rice":
         g = load_rice()
@@ -216,25 +234,13 @@ def load_dataset(name):
         g = load_tuenti()
     elif name == "pokec":
         g = load_pokec()
-    elif name.startswith("facebook"):
-        if "locale" in name:
-            g = load_facebook(features=["locale"])
-        elif "syn" in name: # facebook_syn_2
-            n_comm = int(name.split("syn_")[-1])
-            g = load_facebook(syn_ds=True, n_comm=n_comm)
-        elif "facebook100" in name:
-            if "trinity" in name:
-                g = nx.read_gpickle("./data/facebook100/facebook100_trinity.gpickle")
-            else:
-                g = nx.read_gpickle("./data/facebook100/facebook100_am.gpickle")
-        else:
-            g = load_facebook()
+    elif name =="pokecn":
+        g = load_pokecn()
+
         
     return g
 
-def load_twitter_climate():
-    g = nx.read_gpickle("./data/twitter/twitter_climate.gpickle")
-    return g
+
 if __name__ == "__main__":
     g = load_dataset("rice")
     print(g.number_of_nodes(), g.number_of_edges())#, nx.average_clustering(g), nx.transitivity(g))
