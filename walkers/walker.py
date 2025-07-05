@@ -6,7 +6,7 @@ import gensim
 import torch
 
 # from w2v_cbow.train import generate_embeddings_w2v
-from w2v.train import generate_embeddings_w2v
+# from w2v.train import generate_embeddings_w2v
 
 class Walker(object):
     def __init__(self, graph,dimensions=64,num_walks=200,walk_len=10,workers=1):

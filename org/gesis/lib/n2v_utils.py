@@ -15,17 +15,17 @@ from org.gesis.lib.pagerank import personalized_page_rank
 from org.gesis.lib.fairpagerank import fair_personalized_page_rank
 from org.gesis.lib.DegFairGNN.main_lp import _get_node_embeddings_gnn
 from load_dataset import load_rice, load_dataset
-# from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
-# from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
-# from walkers.fastfairwalk import FastFairWalk
-# from walkers.fastcrosswalk import FastCrossWalk
+from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
+from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
+from walkers.fastfairwalk import FastFairWalk
+from walkers.fastcrosswalk import FastCrossWalk
 
-# walker_dict = {
-# "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
-# "ffw": FastFairWalk,
-# "fcw": FastCrossWalk,
-# "fastadaptivealphatest" : FastAdaptiveAlphaTest,
-# }
+walker_dict = {
+"fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
+"ffw": FastFairWalk,
+"fcw": FastCrossWalk,
+"fastadaptivealphatest" : FastAdaptiveAlphaTest,
+}
 
 
 # Hyperparameter for node2vec/fairwalk
@@ -191,11 +191,11 @@ def get_top_recos_by_ppr_score(adj, ppr_scores, N=1):
 
 
 def get_top_recos_v2(g, embeddings, all_nodes, N=1):
+    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
     cosine_sim = pairwise_cosine_similarity(embeddings, embeddings)
     print("Obtained Cosine Similarity Values")
     results = []
     print("Finding top:{} recos based on cos-sim".format(N))
-    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
     np.fill_diagonal(adj_matrix, 1)
     print("creating a torch matrix")
 

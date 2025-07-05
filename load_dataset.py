@@ -5,7 +5,7 @@ import pandas as pd
 from facebook_scrap import get_graph
 # from facebook_scrap import get_graph_syn
 from org.gesis.lib.io import save_gpickle, read_pickle
-from littleballoffur.exploration_sampling import ForestFireSampler
+# from littleballoffur.exploration_sampling import ForestFireSampler
 import dgl
 
 def get_edge_info(g):
@@ -219,7 +219,25 @@ def load_pokecn():
 
     # Add 'sensitive' as a node attribute in NetworkX
     for nid in range(dgl_graph.num_nodes()):
-        nx_graph.nodes[nid]["sensitive"] = int(sensitive_attr[nid].item()) 
+        nx_graph.nodes[nid]["group"] = int(sensitive_attr[nid].item()) 
+
+    return nx_graph
+
+def load_pokecz():
+    path = "./data/pokecz/pokecz.bin"
+    glist, _ = dgl.load_graphs(path)
+    print(glist)
+    dgl_graph = glist[0]
+
+    # Convert to NetworkX (without attributes yet)
+    nx_graph = dgl.to_networkx(dgl_graph)
+
+    # Extract 'sensitive' feature (Tensor of shape [num_nodes])
+    sensitive_attr = dgl_graph.ndata["sensitive"]
+
+    # Add 'sensitive' as a node attribute in NetworkX
+    for nid in range(dgl_graph.num_nodes()):
+        nx_graph.nodes[nid]["group"] = int(sensitive_attr[nid].item()) 
 
     return nx_graph
 
@@ -236,12 +254,13 @@ def load_dataset(name):
         g = load_pokec()
     elif name =="pokecn":
         g = load_pokecn()
-
-        
+    elif name =="pokecz":
+        g = load_pokecz()
+ 
     return g
 
 
 if __name__ == "__main__":
-    g = load_dataset("rice")
+    g = load_dataset("pokecz")
     print(g.number_of_nodes(), g.number_of_edges())#, nx.average_clustering(g), nx.transitivity(g))
     get_edge_info(g)

@@ -1,0 +1,23 @@
+#!/bin/sh
+#SBATCH --partition=defq
+#SBATCH --job-name=getrecos
+#SBATCH --nodes=1
+#SBATCH --nodelist=node202
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=1G
+#SBATCH --gres=gpu:1      # Request all available GPUs
+#SBATCH --time=2-00:00:00
+#SBATCH --output=slurm_output_%N_%A.out
+
+
+module purge
+module load gcc
+module load slurm
+module load cuda12.3/toolkit
+
+source activate lr_env
+
+nvidia-smi
+
+srun python  -u generate_recos_real_ds_model_based.py --model ffw  --name pokecz --seed 420
+

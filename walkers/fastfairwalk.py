@@ -35,7 +35,7 @@ class FastFairWalk(Walker):
         print("Computing node embeddings on {}".format(self.device))
         print("!! Obtain DGL Graph from Networkx")
         self._precompute_graph() # convert to dgl graph
-        print("!! Precomputing Probablities -  Adaptive Alpha - NonLocal ID + Local RW (p=1,q=1)")
+        print("!! Precomputing Probablities -  FastFairwalk")
         self._precompute_probabilities() # populate d_graph
         print("!!!!  Generate Walks")
         self.walks = self._generate_walks()

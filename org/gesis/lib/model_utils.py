@@ -54,7 +54,7 @@ def generate_pos_neg_links(g,seed, prop_pos=0.1, prop_neg=0.1, ds="rice"):
  
 
         
-        if ds in ["tuenti","pokec"]:
+        if ds in ["tuenti", "pokec", "pokecn", "pokecz"]:
             dgl_g = from_networkx(g)
             u, v = global_uniform_negative_sampling(dgl_g,num_samples=g.number_of_edges())
             u, v = u.unsqueeze(1), v.unsqueeze(1)
@@ -62,7 +62,7 @@ def generate_pos_neg_links(g,seed, prop_pos=0.1, prop_neg=0.1, ds="rice"):
         else:
             non_edges = list(nx.non_edges(g))
     
-        
+
         pos_edge_dict = get_edge_dict(g)
         neg_edge_dict = get_edge_dict(g,non_edges,is_neg=True)
 
