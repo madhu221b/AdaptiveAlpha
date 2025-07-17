@@ -63,13 +63,13 @@ def make_one_timestep(g, seed, t=0, path="", model="", test_edges=None, extra_pa
             all_nodes = g.nodes()
             print(f"Getting Link Recommendations from {model} Model ")
             recos, cosine_sim = get_top_recos_v2(g, embeds, all_nodes) 
-            sim_matrix = cosine_sim
+            sim_matrix = cosine_sim           
         else:
-            print("Generating Node Embeddings")
+            print("Generating Node Embeddings", extra_params)
             embeds = recommender_model_walker(g, t, model=model, extra_params=extra_params)
             all_nodes = g.nodes()
             print("Getting Link Recommendations from {} Model ".format(model))
-            recos, cosine_sim = get_top_recos_v2(g,embeds, all_nodes) 
+            recos, cosine_sim = get_top_recos_v2(g, embeds, all_nodes) 
             sim_matrix = cosine_sim
         
         
@@ -131,15 +131,15 @@ def run(name ,model, main_seed, extra_params):
         g_train = io.read_pickle(g_train_path)
         dict_ = io.read_pickle(test_dict_path)
         test_edges, true_labels = dict_["test_edges"], dict_["true_labels"]
-
+    print(g_train)
     g = g_train
     print("[After sampling] Edges: {} , Nodes: {}".format(g.number_of_edges(),g.number_of_nodes()))
     
     if "tuenti" in name:
         g = relabel_nodes_attributes(g)  
  
-    
-    iterable = tqdm(range(EPOCHS), desc='Timesteps', leave=True) 
+    start_time = 0
+    iterable = tqdm(range(start_time, EPOCHS), desc='Timesteps', leave=True) 
     time = 0
 
     for time in iterable:
@@ -148,10 +148,10 @@ def run(name ,model, main_seed, extra_params):
             print("File does not exist for time {}, creating now".format(time))
             seed = main_seed+time+1 
             if "fpr" not in model:
-                g_updated, sim_matrix = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params)
+                g_updated, sim_matrix = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params=extra_params)
                 save_modeldata(sim_matrix, test_edges, true_labels, None, name, model, main_seed, t=time)
             else:
-                g_updated, ppr_scores_test = make_one_timestep(g.copy(), seed, time, new_path, model, test_edges, extra_params)
+                g_updated, ppr_scores_test = make_one_timestep(g.copy(), seed, time, new_path, model, test_edges, extra_params=extra_params)
                 save_modeldata(None, test_edges, true_labels, ppr_scores_test, name, model, main_seed, t=time)
 
            
@@ -189,11 +189,12 @@ def save_metadata(g, name, model,seed,t=0):
     create_subfolders(folder_path)
     filename = get_filename(name,model)
     
-    
-    fn = os.path.join(folder_path,'_{}_t_{}.gpickle'.format(filename,t))
-    io.save_gpickle(g, fn)
+    if t % 9 == 0 or (t == EPOCHS - 1):
+        print("Saving file at time: ", t)
+        fn = os.path.join(folder_path,'_{}_t_{}.gpickle'.format(filename,t))
+        io.save_gpickle(g, fn)
 
-    print("Saving graph file at, ", fn.replace(".gpickle",""))
+        print("Saving graph file at, ", fn.replace(".gpickle",""))
 
 
 def save_modeldata(sim_matrix, test_edges, true_labels, pred_values, name, model, seed, t=0):
@@ -243,11 +244,17 @@ if __name__ == "__main__":
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
     elif args.model in ["fcw"]:
-        model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
-        extra_params = {"p":args.p_cw,"alpha":args.alpha_cw}
+        model = args.model + "_pcw_{}_alphacw_{}".format(args.p_cw,args.alpha_cw)
+        extra_params = {"p_cw":args.p_cw,"alpha_cw":args.alpha_cw}
     elif args.model in ["fpr"]:
         model = args.model + "_psi_{}".format(args.psi)
         extra_params = {"psi":args.psi}
+    elif args.model in ["groupn2v"]:
+        extra_params = {"pq_dict": {1:{"p":4.0, "q": 0.1}, 0: {"p":0.5, "q":2}}}
+        model = args.model + f"_pq_dict_3"
+    elif args.model in ["n2v"]:
+        model = args.model + f"_p_{args.p}_q_{args.q}"
+        extra_params = {"p":args.p, "q":args.q}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}

@@ -20,12 +20,11 @@ from tqdm.auto import tqdm
 
 DeviceHint = Union[None, str, torch.device]
 
-
 def power_iteration(
     adj: torch.Tensor,
     x0: torch.Tensor,
     alpha: float = 0.05,
-    max_iter: int = 1000,
+    max_iter: int = 200,
     use_tqdm: bool = False,
     epsilon: float = 1.0e-04,
     device: DeviceHint = None,
@@ -342,7 +341,7 @@ def fair_personalized_page_rank(
     :return: shape: ``(n, k)``
         the PPR vectors for each node index
     """
-    batch_size = 10000
+    batch_size = 5000
     results = list()
     
     P_N = get_fair_adjacency_matrix(adj=adj, node_attr=node_attr, psi=psi)

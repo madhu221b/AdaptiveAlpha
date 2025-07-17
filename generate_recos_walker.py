@@ -120,7 +120,7 @@ def run(hMM, hmm,model,fm, extra_params):
         if not is_file and not is_file_final:
             print("File does not exist for time {}, creating now".format(time))
             seed = MAIN_SEED+time+1 
-            g_updated = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params)
+            g_updated = make_one_timestep(g.copy(), seed, time, new_path, model, extra_params=extra_params)
             g = g_updated
             if time == EPOCHS - 1:
                save_metadata(g, hMM, hmm, model,fm,t=time)
@@ -168,14 +168,14 @@ if __name__ == "__main__":
     parser.add_argument("--model", help="Different Walker Models", type=str)
     parser.add_argument("--fm", help="fraction of minorities", type=float, default=0.3)
     parser.add_argument("--beta", help="Beta paramater", type=float, default=2.0)
-    parser.add_argument("--alpha", help="Alpha paramater (Levy)", type=float, default=1.0)
+    parser.add_argument("--alpha", help="Alpha parameter", type=float, default=1.0)
     parser.add_argument("--p", help="Return parameter", type=float, default=1.0)
     parser.add_argument("--q", help="In-out parameter", type=float, default=1.0)
     parser.add_argument("--start", help="Start idx", type=float, default=0.1)
     parser.add_argument("--end", help="End idx", type=float, default=0.5)
 
-    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=4)
-    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.7)
+    parser.add_argument("--p_cw", help="[CrossWalk] Degree of biasness of random walks towards visiting nodes at group boundaries", type=float, default=2)
+    parser.add_argument("--alpha_cw", help="[CrossWalk] Upweights edges connecting different groups [0,1]", type=float, default=0.5)
     
     parser.add_argument("--psi", help="Fair PageRank - psi - LFPR_N algorithm", type=float, default=0.5)
     parser.add_argument("--deletion", help="rand/no/pref", type=str, default="rand")
@@ -191,13 +191,17 @@ if __name__ == "__main__":
         model = args.model + "_p_{}_q_{}".format(args.p,args.q)
         extra_params = {"p":args.p,"q":args.q}
     elif args.model in ["fcw"]:
-        model = args.model + "_p_{}_alpha_{}".format(args.p_cw,args.alpha_cw)
-        extra_params = {"p":args.p_cw,"alpha":args.alpha_cw}
+        model = args.model + "_pcw_{}_alphacw_{}".format(args.p_cw,args.alpha_cw)
+        extra_params = {"p_cw":args.p_cw,"alpha_cw":args.alpha_cw}
     elif args.model in ["fpr"]:
         model = args.model + "_psi_{}".format(args.psi)
         extra_params = {"psi":args.psi}
-    elif args.model in ["dfgnn"]:
-        model = args.model
+    elif args.model in ["groupn2v"]:
+        extra_params = {"pq_dict": {0:{"p":4.0, "q": 0.1}, 1: {"p":0.5, "q":2}}}
+        model = args.model + f"_pq_dict_3"
+    elif args.model in ["n2v"]:
+        model = args.model + f"_p_{args.p}_q_{args.q}"
+        extra_params = {"p":args.p, "q":args.q}
     else:
        model =  "{}_beta_{}".format(args.model,args.beta)
        extra_params = {"beta":args.beta}
