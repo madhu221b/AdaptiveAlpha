@@ -226,7 +226,6 @@ def load_pokecn():
 def load_pokecz():
     path = "./data/pokecz/pokecz.bin"
     glist, _ = dgl.load_graphs(path)
-    print(glist)
     dgl_graph = glist[0]
 
     # Convert to NetworkX (without attributes yet)
@@ -242,6 +241,7 @@ def load_pokecz():
     return nx_graph
 
 def load_dataset(name):
+    print("going in load dataset:  ", name)
     if name == "rice":
         g = load_rice()
     elif name == "twitter":
@@ -254,13 +254,14 @@ def load_dataset(name):
         g = load_pokec()
     elif name =="pokecn":
         g = load_pokecn()
-    elif name =="pokecz":
+    elif name == "pokecz":
         g = load_pokecz()
- 
+
+        
     return g
 
 
 if __name__ == "__main__":
-    g = load_dataset("pokecz")
+    g = load_dataset("pokecn")
     print(g.number_of_nodes(), g.number_of_edges())#, nx.average_clustering(g), nx.transitivity(g))
     get_edge_info(g)

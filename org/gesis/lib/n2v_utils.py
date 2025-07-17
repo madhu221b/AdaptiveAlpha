@@ -19,19 +19,25 @@ from walkers.fastadaptivealphatest import FastAdaptiveAlphaTest
 from walkers.fastadaptivealphatestfixed import FastAdaptiveAlphaTestFixed
 from walkers.fastfairwalk import FastFairWalk
 from walkers.fastcrosswalk import FastCrossWalk
+from walkers.groupn2vwalker import GroupN2VWalk
 
 walker_dict = {
 "fastadaptivealphatestfixed" : FastAdaptiveAlphaTestFixed,
 "ffw": FastFairWalk,
 "fcw": FastCrossWalk,
 "fastadaptivealphatest" : FastAdaptiveAlphaTest,
+"groupn2v": GroupN2VWalk
 }
 
 
 # Hyperparameter for node2vec/fairwalk
-DIM = 64
-WALK_LEN = 10
-NUM_WALKS = 200
+# DIM = 64
+# WALK_LEN = 10
+# NUM_WALKS = 200
+
+DIM = 128
+WALK_LEN = 20
+NUM_WALKS = 10 # num walks per node
 
 main_path = "../AdaptiveAlpha"
 
@@ -94,20 +100,23 @@ def recommender_model_dfgnn(g, t, model, extra_params):
 
 
 
-def recommender_model_walker(G,t=0,model="n2v",extra_params=dict(),num_cores=8, is_walk_viz=False):
+def recommender_model_walker(G ,t=0, model="n2v", extra_params=dict(), num_cores=8):
     WalkerObj = walker_dict[model.split("_")[0]] # degree_beta_1.0 for instance
-    walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, num_walks=NUM_WALKS, workers=num_cores,**extra_params)       
-    model = walkobj.fit() 
+    walkobj = WalkerObj(G, dimensions=DIM, walk_len=WALK_LEN, walks_per_node=NUM_WALKS, workers=num_cores, **extra_params)       
+    
 
-    # emb_df = (pd.DataFrame([model.wv.get_vector(str(n)) for n in G.nodes()], index = G.nodes))
+    model = walkobj.fit()  
     embedding_list = np.array([model.wv.get_vector(str(n)) for n in range(G.number_of_nodes())])
     embeddings = torch.from_numpy(embedding_list)
+    # else:
+    #     embeddings = walkobj.get_embeddings()
+
     print("Node embeddings are obtained")
-    # embeddings = walkobj.fit()
-    # emb_df = (pd.DataFrame([embeddings[n] for n in G.nodes()], index = G.nodes))
-    # return model, embeddings
     return embeddings
 
+def get_groupwise_embeddings_n2v(G, extra_params=dict()):
+    pass
+    
 
 def recommender_model(G,t=0,path="",model="n2v",p=1,q=1,num_cores=8, is_walk_viz=False):
     if model == "n2v":
@@ -208,13 +217,16 @@ def get_top_recos_v2(g, embeddings, all_nodes, N=1):
         if end_lim >= end: end_lim = end
         print("Spanning nodes from : {} to  {}".format(start, end_lim))
         cosine_sim_sub = cosine_sim[start:end_lim, :]
+
       
         with torch.no_grad():
-            adj_matrix_torch = torch.tensor(adj_matrix[start:end_lim, :])
-        adj_matrix_torch[adj_matrix_torch == 1.0] = float(-1000)
-        adj_matrix_torch += cosine_sim_sub
-       
-        _, tgt_nodes = torch.topk(adj_matrix_torch, N, dim=1, sorted=False)
+            adj_matrix_torch = torch.tensor(adj_matrix[start:end_lim, :]).bool()
+        # adj_matrix_torch[adj_matrix_torch == 1.0] = float(-1000)
+        # adj_matrix_torch += cosine_sim_sub
+        # _, tgt_nodes = torch.topk(adj_matrix_torch, N, dim=1, sorted=False)
+
+        masked_sim = cosine_sim_sub.masked_fill(adj_matrix_torch, float('-inf'))
+        _, tgt_nodes = torch.topk(masked_sim, N, dim=1, sorted=False)
 
         src_nodes = list(range(start, end_lim, 1))
         for src_node, tgts in zip(src_nodes, tgt_nodes):

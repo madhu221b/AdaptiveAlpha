@@ -18,8 +18,8 @@ except Exception as error:
 
 class FastAdaptiveAlphaTest(Walker):
     def __init__(self, graph, beta=0, workers=1, dimensions=64, walk_len=10, num_walks=200):
-        print(" FAST Test Adaptive Alpha Non Local In Degree Walker with constant beta: {} And Local Random Walker ".format(beta))
         super().__init__(graph, workers=workers,dimensions=dimensions,walk_len=walk_len,num_walks=num_walks)
+        print(" FAST Test Adaptive Alpha Non Local In Degree Walker with constant beta: {} And Local Random Walker ".format(beta))
         self.quiet = False
         self.is_optimise = False # For huge graphs, relying less on networkx
         self.number_of_nodes = self.graph.number_of_nodes()
@@ -171,13 +171,25 @@ class FastAdaptiveAlphaTest(Walker):
             else: alpha = len_v/len_local
             
             # assign local-weight
-            if len_local != 0: local_pr = 1/len_local
-            else: local_pr = 0
+            # if len_local != 0: local_pr = 1/len_local
+            # else: local_pr = 0
+            # one_minus_alpha  = (1-alpha)
+            # pr = torch.tensor([one_minus_alpha*local_pr], device=device)
+            # local_pr = pr.repeat(len_local)
 
+            ## assign local weight
             one_minus_alpha  = (1-alpha)
-            pr = torch.tensor([one_minus_alpha*local_pr], device=device)
-            local_pr = pr.repeat(len_local)
-   
+            if len_local != 0: 
+                local_degree_df = self.degree_pow_df.loc[local_successors, :]
+                sum_dfs_l = local_degree_df['degree_pow'].sum()
+                # normalize the column and multiply by alpha
+                local_degree_df["degree_pow"] = (one_minus_alpha*local_degree_df["degree_pow"])/sum_dfs_l
+                local_pr = torch.tensor(list(local_degree_df['degree_pow']), device=device)
+            else: 
+                local_pr = torch.tensor([], device=device)
+  
+        
+
             # assign non-local weight          
             degree_df = self.degree_pow_df.loc[non_local_successors, :]
             sum_dfs = degree_df['degree_pow'].sum()

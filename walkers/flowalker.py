@@ -16,10 +16,10 @@ try:
 except Exception as error:
     from walker import Walker
 
-class FastAdaptiveAlphaTestFixed(Walker):
-    def __init__(self, graph, beta=0, alpha=0, workers=1, dimensions=64, walk_len=10, num_walks=200):
-        print(" FAST Test Adaptive Alpha Non Local In Degree Walker with constant beta: {}  and alpha: {} And Local Random Walker ".format(beta,alpha))
+class Flowwalker(Walker):
+    def __init__(self, graph, beta=0, workers=1, dimensions=64, walk_len=10, num_walks=200):
         super().__init__(graph, workers=workers,dimensions=dimensions,walk_len=walk_len,num_walks=num_walks)
+        print(f"Flowalker Non Local In Degree Walker with constant beta: {beta} And Local Random Walker ")
         self.quiet = False
         self.is_optimise = False # For huge graphs, relying less on networkx
         self.number_of_nodes = self.graph.number_of_nodes()
@@ -27,21 +27,22 @@ class FastAdaptiveAlphaTestFixed(Walker):
         # self.device =  'cuda' if torch.cuda.is_available() else 'cpu'
         self.device = "cpu"
         self.edge_dict = dict()
-        self.alpha = alpha
+      
         self.node_attrs = nx.get_node_attributes(self.graph, "group")
-        self.group_df = pd.DataFrame.from_dict(self.node_attrs, orient='index', columns=['group'])
-        self.groups = set(self.node_attrs.values())
+        self.df = pd.DataFrame.from_dict(self.node_attrs, orient='index', columns=['group'])
+        self.groups = self.df['group'].unique().tolist()
 
         degree = dict(self.graph.in_degree()) # note now it is indegree
-        self.indegree_df = pd.DataFrame.from_dict(degree, orient='index', columns=['degree'])
-        degree_pow = dict({node: (np.round(degree**beta,5) if degree != 0 else 0) for node, degree in degree.items()})
-        self.degree_pow_df = pd.DataFrame.from_dict(degree_pow, orient='index', columns=['degree_pow'])
-      
+
+        self.df["indegree"] = self.df.index.map(degree)  # assuming node IDs are the index
+        self.df["degree_pow"] = self.df["indegree"] ** beta  # raise to a power
  
         # Populate nodes by group
         self._get_group_to_node_dict()
         self.avg_out_degree_by_group = self._get_avg_outdegree()
-        print("mx degree by group: ", self.avg_out_degree_by_group)
+        
+        # compute alpha per group
+        self.alpha_dict = self._get_alpha_dict()
 
     
 
@@ -54,7 +55,39 @@ class FastAdaptiveAlphaTestFixed(Walker):
         print("!!!!  Generate Walks")
         self.walks = self._generate_walks()
     
+    def compute_role_scores(self):
+        node2cbscore, node2lbscore = dict(), dict()
+        for node, group in self.node_attrs.items():
+            preds = list(self.graph.predecessors(node))
+            succs = list(self.graph..successors(node))
+            pred_same_group = sum([1 for pred in preds if node2group[pred] == group]) 
+            succ_same_group = sum([1 for  succ in succs if node2group[succ] == group]) 
+            id_same = pred_same_group/len(preds) if preds else 0
+            id_diff = (1 - id_same) if preds else 0
+            od_same = succ_same_group/len(succs)  if succs else 0
+            od_diff = (1 - od_same) if succs else 0
+            cross_bridge_score = id_same*od_diff + id_diff*od_same
+            local_bridge_score = id_same*od_same
+            node2cbscore[node] = cross_bridge_score
+            node2lbscore[node] = local_bridge_score
 
+        return node2cbscore, node2lbscore
+
+    def _get_alpha_dict(self):
+        group2alpha = dict()
+        cbscore, lbscore = self.compute_role_scores()
+        self.df["crossbscore"] = self.df.index.map(cbscore)
+        self.df["localbscore"] = self.df.index.map(lbscore)
+        grouped = self.df.groupby(["group"])[["crossbscore", "localbscore"]].mean()
+        for group, row in grouped.iterrows():
+            cross_score = row['crossbscore']
+            local_score = row['localbscore']
+            total = cross_score + local_score
+            cross_bias = cross_score / total if total != 0 else 0
+            group2alpha[group] = cross_bias
+        return group2alpha
+
+    
     def _get_avg_outdegree(self):
         out_degree = dict()
         degree = dict(self.graph.out_degree()) # note now it is indegree
@@ -73,8 +106,8 @@ class FastAdaptiveAlphaTestFixed(Walker):
         self.group_to_node_dict = dict()
         # populate by 
         for group in self.groups:
-            nodes_by_group = list(self.group_df.loc[self.group_df["group"] == group,:].index)
-            prs = self.degree_pow_df.loc[nodes_by_group, "degree_pow"]
+            nodes_by_group = list(self.group_df.loc[self.df["group"] == group,:].index)
+            prs = self.df.loc[nodes_by_group, "degree_pow"]
             prs += 1e-6
             sum_prs = prs.sum()
             prs = prs/sum_prs
@@ -91,7 +124,7 @@ class FastAdaptiveAlphaTestFixed(Walker):
         for successor in successors:
             next_succ = self.graph.successors(successor)
             # not already connected to node or is an exisiting successor and is so same identity
-            next_succ = [_ for _ in next_succ if _ != node and _ not in successors and self.node_attrs[_]==self.node_attrs[node]]
+            next_succ = [_ for _ in next_succ if _ != node and _ not in successors and self.node_attrs[_] == self.node_attrs[node]]
             non_local_jump_nodes.extend(next_succ)
 
         if len(non_local_jump_nodes) != 0:
@@ -166,34 +199,15 @@ class FastAdaptiveAlphaTestFixed(Walker):
             
             # calculate alpha
             id_u = self.node_attrs[u]
-            len_v = len([_ for _ in local_successors if self.node_attrs[_] != id_u])
-            if len_local == 0: alpha = 1.0
-            else: alpha = self.alpha
-            
+            alpha = self.alpha_dict[id_u]
+             
             # assign local-weight
-            # if len_local != 0: local_pr = 1/len_local
-            # else: local_pr = 0
-            # one_minus_alpha  = (1-alpha)
-            # pr = torch.tensor([one_minus_alpha*local_pr], device=device)
-            # local_pr = pr.repeat(len_local)
+            if len_local != 0: local_pr = 1/len_local
+            else: local_pr = 0
 
-                        # assign local-weight
-            # if len_local != 0: local_pr = 1/len_local
-            # else: local_pr = 0
-            # one_minus_alpha  = (1-alpha)
-            # pr = torch.tensor([one_minus_alpha*local_pr], device=device)
-            # local_pr = pr.repeat(len_local)
-
-            ## assign local weight
             one_minus_alpha  = (1-alpha)
-            if len_local != 0: 
-                local_degree_df = self.degree_pow_df.loc[local_successors, :]
-                sum_dfs_l = local_degree_df['degree_pow'].sum()
-                # normalize the column and multiply by alpha
-                local_degree_df["degree_pow"] = (one_minus_alpha*local_degree_df["degree_pow"])/sum_dfs_l
-                local_pr = torch.tensor(list(local_degree_df['degree_pow']), device=device)
-            else: 
-                local_pr = torch.tensor([], device=device)
+            pr = torch.tensor([one_minus_alpha*local_pr], device=device)
+            local_pr = pr.repeat(len_local)
    
             # assign non-local weight          
             degree_df = self.degree_pow_df.loc[non_local_successors, :]
@@ -206,8 +220,7 @@ class FastAdaptiveAlphaTestFixed(Walker):
             list_us = torch.tensor(u).to(device).repeat(len_all)
             list_vs = torch.cat((torch.tensor(local_successors),torch.tensor(list(degree_df.index))))
             list_vs = list_vs.to(torch.int64).to(device)
-            # print("local pr size: {}, non local pr size: {}".format(local_pr.size(), non_local_pr.size()))
-            list_prs = torch.cat((local_pr,non_local_pr))
+            list_prs = torch.cat((local_pr, non_local_pr))
             
             edge_ids = self.dgl_g.edge_ids(list_us,list_vs)
             torch_prs[edge_ids] = list_prs

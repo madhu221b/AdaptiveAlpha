@@ -14,24 +14,28 @@ from dgl.sampling import random_walk
 
 try:
   from .walker import Walker
-  from .fastdeepwalk import FastDeepWalker
+  from .n2vwalker import N2VWalk
+  from .n2vwalker import alias_setup, alias_draw
+
 except Exception as error:
     from walker import Walker
-    from fastdeepwalk import FastDeepWalker
+    from n2vwalker import N2VWalk
+    from n2vwalker import alias_setup, alias_dra
    
 # from .walkers.fastdeepwalk import DeepWalker
 
 class FastCrossWalk(Walker):
-    def __init__(self, graph, beta=0,  p=1, alpha=0.5, workers=1, dimensions=64, walk_len=10, num_walks=200):
-        print(" FAST Cross Walker with p: {}, alpha: {} (Implementation only for 2 groups)".format(p, alpha))
-        super().__init__(graph, workers=workers,dimensions=dimensions,walk_len=walk_len,num_walks=num_walks)
-        self.p , self.alpha = p, alpha
+    def __init__(self, graph, p_cw = 1, alpha_cw = 0.5, workers=1, dimensions=128, walk_len=20, walks_per_node=10):
+        print(f"Fast Cross Walker with p_cw: {p_cw}, alpha: {alpha_cw}")
+        super().__init__(graph, workers=workers, dimensions=dimensions, walk_len=walk_len, walks_per_node=walks_per_node)
+        self.p_cw , self.alpha_cw = p_cw, alpha_cw
+        self.p, self.q = 1, 1 
         self.quiet = False
         self.number_of_nodes = self.graph.number_of_nodes()
         
-        # self.device =  'cuda' if torch.cuda.is_available() else 'cpu'
+
         self.device = "cpu"
-        self.edge_dict = dict()
+
       
         self.node_attrs = nx.get_node_attributes(self.graph, "group")
         self.group_df = pd.DataFrame.from_dict(self.node_attrs, orient='index', columns=['group'])
@@ -41,50 +45,87 @@ class FastCrossWalk(Walker):
         print("Computing node embeddings on {}".format(self.device))
  
         print("!! Precomputing Probablities -  Fast Crosswalker")
-        print("!!!!  1. Generate Walks on Deep Walks")
-        deepwalker = FastDeepWalker(graph)
-        walks = deepwalker.walks
-        walks = walks.to(self.device)
+        print("!!!!  1. Generate Walks using Node2Vec")
+        n2vwalker = N2VWalk(graph)
+        walks = n2vwalker.walks
+        walks = [list(map(int, row)) for row in walks]
         print("!!!!  2. Compute Weights")
-        u, v, w = self._get_weight(walks)
-        print(u.size(), v.size(), w.size())
+        weight_dict = self._get_weight(walks)
         print("!!! Create Graph from these weights")
-        self._precompute_graph(u, v, w)
+        self._precompute_graph(weight_dict)
 
-        print("!! Precomputing Probablities -  Fast Crosswalk")
-        self._precompute_probabilities() # populate d_graph
+        print("!! Precomputing Probabilities -  Fast Crosswalk")
+        self.precompute_probabilities() # populate d_graph
         print("!!!!  Generate Walks")
-        self.walks = self._generate_walks()
+        self.walks = self.simulate_walks()
         
 
         
-    def _precompute_graph(self, u, v, w):
-        edges = u, v
-        weights = w # weight of each edge
-        self.dgl_g = dgl.graph(edges).to(self.device)
-        self.dgl_g.edata['w'] = weights  # give it a name 'w'
+    def _precompute_graph(self, weight_dict):
+        nx.set_edge_attributes(self.graph, weight_dict)
 
-        self.dgl_g.edata['p'] = torch.zeros(self.dgl_g.num_edges(), dtype=torch.float32, device=self.device)
+    def get_alias_edge(self, src, dst):
+        '''
+        Get the alias edge setup lists for a given edge.
+        '''
+        p = self.p
+        q = self.q
 
+        unnormalized_probs = []
+        for dst_nbr in sorted(self.graph.neighbors(dst)):
+            weight = self.graph[dst][dst_nbr]['weight'] # weighted graph
+            if dst_nbr == src:
+                unnormalized_probs.append(weight/p)
+            elif self.graph.has_edge(dst_nbr, src):
+                unnormalized_probs.append(weight)
+            else:
+                unnormalized_probs.append(weight/q)
+        norm_const = sum(unnormalized_probs)
+        normalized_probs =  [float(u_prob)/norm_const for u_prob in unnormalized_probs]
+
+        return alias_setup(normalized_probs)
+
+    def precompute_probabilities(self):
+        '''
+        Preprocessing of transition probabilities for guiding the random walks.
+        '''
+        alias_nodes = {}
+        for node in self.graph.nodes():
+            unnormalized_probs = [self.graph[node][nbr]["weight"] for nbr in sorted(self.graph.neighbors(node))] # weighted graphs
+            norm_const = sum(unnormalized_probs)
+            normalized_probs =  [float(u_prob)/norm_const for u_prob in unnormalized_probs]
+            alias_nodes[node] = alias_setup(normalized_probs)
+
+        alias_edges = {}
+        triads = {}
+
+
+        for edge in self.graph.edges():
+            alias_edges[edge] = self.get_alias_edge(edge[0], edge[1])
+
+
+        self.alias_nodes = alias_nodes
+        self.alias_edges = alias_edges
+    
+    
                 
     def _get_weight(self, walks):
         ##  Calculating closeness to boundary
-        r, d = self.num_walks, self.walk_len
-        start_nodes = walks[:, 0]
+        r, d = self.walks_per_node, self.walk_len
+        start_nodes = [walk[0] for walk in walks]
 
-        walks_id = torch.tensor(walks).apply_(lambda x: self.node_attrs[int(x)])
-        start_nodes_id = walks_id[:, 0].unsqueeze(1).repeat(1,d)
+        walks_id = [[self.node_attrs[node] for node in walk] for walk in walks]
+        start_nodes_id = [[self.node_attrs[start_node]]*(len(walk)-1) for walk, start_node in zip(walks, start_nodes)]
         
-        walks_id = walks_id[:, 1:]
-        not_eq_ids = ~torch.eq(walks_id, start_nodes_id)
-        sum_not_eq_ids = torch.sum(not_eq_ids, dim=1)
+        walks_id = [walk_id[1:] for walk_id in walks_id]
+        sum_not_eq_ids = [torch.sum(~torch.eq(torch.tensor(walk_id), torch.tensor(start_node_id))) for walk_id, start_node_id in zip(walks_id, start_nodes_id)]
         
-        cat = torch.vstack((start_nodes, sum_not_eq_ids)).T
+        cat = torch.vstack((torch.tensor(start_nodes), torch.tensor(sum_not_eq_ids))).T
         df = pd.DataFrame(cat.numpy(), columns=["start_node","notsameid"])
         groupby = df.groupby(['start_node'])
         groupby = groupby['notsameid'].sum()/(r*d)
         groupby = groupby.to_frame()
-        groupby['m_v'] = groupby["notsameid"] ** self.p
+        groupby['m_v'] = groupby["notsameid"] ** self.p_cw
    
 
         ## Some pandas operations to have m_v and node id in same dataframe
@@ -110,10 +151,10 @@ class FastCrossWalk(Walker):
                 list_us.extend([v]*Nv.shape[0])
                 list_vs.extend(list(Nv.index))
                 if Z: 
-                    w_vu = Nv["m_v"]*(1-self.alpha)/Z
+                    w_vu = ((1-self.alpha_cw)*Nv["m_v"])/Z
                     list_ws.extend(w_vu)
                 else:
-                    list_ws.extend([1]*Nv.shape[0])
+                    list_ws.extend([0.01]*Nv.shape[0])
 
            
              # Edges Connecting Different Groups
@@ -123,69 +164,63 @@ class FastCrossWalk(Walker):
                 list_vs.extend(list(Rv.index))
                 if Nv.shape[0] != 0: # Crosswalk's condition
                     if Z: 
-                       w_vu = Rv["m_v"]*(self.alpha)/Z
+                       w_vu = (self.alpha_cw*Rv["m_v"])/Z
                        list_ws.extend(w_vu)
                     else:
-                       list_ws.extend([1]*Rv.shape[0]) 
+                       list_ws.extend([0.01]*Rv.shape[0]) 
                 else:
                     if Z: 
                        w_vu = Rv["m_v"]/Z
                        list_ws.extend(w_vu)
                     else:
-                       list_ws.extend([1]*Rv.shape[0]) 
+                       list_ws.extend([0.01]*Rv.shape[0]) 
 
-        
-            
-            
-        return torch.tensor(list_us).to(torch.int64), torch.tensor(list_vs).to(torch.int64), torch.tensor(list_ws)
+        weight_dict = {(u,v):{"weight":w} for u, v, w in zip(list_us, list_vs, list_ws)}
+        return weight_dict
 
            
-    def _precompute_probabilities(self):
-        # Data structures to populate pr
-        # device = "cpu" if self.is_optimise else self.device
-        device = "cpu"
-        us, vs, ps = list(), list(), list()
-        print("initializing edges for torch pr", self.dgl_g.num_edges())
-        torch_prs = torch.zeros(self.dgl_g.num_edges(), dtype=torch.float32, device=device)
+    def cw_walk(self, walk_length, start_node):
+        '''
+        Simulate a random walk starting from start node.
+        '''
+        G = self.graph
+        alias_nodes = self.alias_nodes
+        alias_edges = self.alias_edges
+
+        walk = [start_node]
+
+        while len(walk) < walk_length:
+            cur = walk[-1]
+            cur_nbrs = sorted(G.neighbors(cur))
+            if len(cur_nbrs) > 0:
+                if len(walk) == 1:
+                    walk.append(cur_nbrs[alias_draw(alias_nodes[cur][0], alias_nodes[cur][1])])
+                else:
+                    prev = walk[-2]
+                    next = cur_nbrs[alias_draw(alias_edges[(prev, cur)][0], 
+                        alias_edges[(prev, cur)][1])]
+                    walk.append(next)
+            else:
+                break
+
+        return walk
+
+    def simulate_walks(self):
+        '''
+        Repeatedly simulate random walks from each node.
+        '''
+        walks = []
+        nodes = list(self.graph.nodes())
         
-        nodes_generator = self.graph.nodes() if self.quiet \
-            else tqdm(self.graph.nodes(), desc='Computing transition probabilities')
+        for walk_iter in range(self.walks_per_node):
+            random.shuffle(nodes)
+            for node in nodes:
+                walks.append(self.cw_walk(walk_length=self.walk_len, start_node=node))
         
-        for u in nodes_generator:
-            local_successors = list(self.graph.successors(u))
-            len_local = len(local_successors)
-            if len_local == 0: continue 
-
-            list_us = torch.tensor(u).to(torch.int64).to(device).repeat(len_local)
-            list_vs = torch.tensor(local_successors).to(device)
-            edge_ids = self.dgl_g.edge_ids(list_us,list_vs)
-
-            ws = self.dgl_g.edata['w'][edge_ids]
-            sum_ws = torch.sum(ws)
-            if sum_ws == 0: continue
-            else: list_prs = ws/sum_ws
-            torch_prs[edge_ids] = list_prs
-
-        self.dgl_g.edata['p'] = torch_prs
+        walks = [[str(node) for node in walk] for walk in walks]
+        print(f"Walk results shape:({len(walks)},{len(walks[0])}) ", )
+        return walks
     
             
 
-    def _generate_walks(self) -> list:
-        """
-        Generates the random walks which will be used as the skip-gram input.
-        :return: List of walks. Each walk is a list of nodes.
-        """
-        # Split num_walks for each worker
-        
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print("Generating walks on : ", self.device)
-        nodes = torch.tensor(list(self.graph.nodes()))
-        nodes = nodes.repeat(self.num_walks).to(self.device)
-
-        walk_results, _ = dgl.sampling.random_walk(self.dgl_g.to(self.device), nodes=nodes, length=self.walk_len, prob="p")
-        print("Walk results shape: ", walk_results.size())
-        # walks = walk_results
-        walks = np.array(walk_results.tolist()).astype(str).tolist()
-        # walks = np.array(walk_results.tolist()).tolist()
-        return walks
 
