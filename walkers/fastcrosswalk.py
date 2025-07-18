@@ -59,9 +59,23 @@ class FastCrossWalk(Walker):
         print("!!!!  Generate Walks")
         self.walks = self.simulate_walks()
         
+   
 
+    def multidigraph_to_digraph(self, multi_g):
+        g = nx.DiGraph()
+        g.add_nodes_from(multi_g.nodes(data=True))
+
+        for u, v, data in multi_g.edges(data=True):
+            weight = data.get("weight", 1)  # default to 1 if no weight
+            if g.has_edge(u, v):
+                g[u][v]["weight"] += weight  # sum weights
+            else:
+                g.add_edge(u, v, weight=weight)
+        
+        return g
         
     def _precompute_graph(self, weight_dict):
+        self.graph = self.multidigraph_to_digraph(self.graph)
         nx.set_edge_attributes(self.graph, weight_dict)
 
     def get_alias_edge(self, src, dst):

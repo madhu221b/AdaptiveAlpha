@@ -39,7 +39,7 @@ DIM = 128
 WALK_LEN = 20
 NUM_WALKS = 10 # num walks per node
 
-main_path = "../AdaptiveAlpha"
+main_path = "/home/mmpawar/flowalk"
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -200,12 +200,13 @@ def get_top_recos_by_ppr_score(adj, ppr_scores, N=1):
 
 
 def get_top_recos_v2(g, embeddings, all_nodes, N=1):
-    adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+    # adj_matrix =  nx.to_numpy_array(g, nodelist=list(range(g.number_of_nodes()))).astype(np.float32)
+    # np.fill_diagonal(adj_matrix, 1)
     cosine_sim = pairwise_cosine_similarity(embeddings, embeddings)
     print("Obtained Cosine Similarity Values")
     results = []
     print("Finding top:{} recos based on cos-sim".format(N))
-    np.fill_diagonal(adj_matrix, 1)
+    
     print("creating a torch matrix")
 
     MAX_LIMIT = 5000
@@ -216,17 +217,25 @@ def get_top_recos_v2(g, embeddings, all_nodes, N=1):
         end_lim = start + MAX_LIMIT
         if end_lim >= end: end_lim = end
         print("Spanning nodes from : {} to  {}".format(start, end_lim))
-        cosine_sim_sub = cosine_sim[start:end_lim, :]
+        
+        ## WAY 1
+        # cosine_sim_sub = cosine_sim[start:end_lim, :]
+        # with torch.no_grad():
+        #     adj_matrix_torch = torch.tensor(adj_matrix[start:end_lim, :]).bool()
+        # # adj_matrix_torch[adj_matrix_torch == 1.0] = float(-1000)
+        # # adj_matrix_torch += cosine_sim_sub
+        # # _, tgt_nodes = torch.topk(adj_matrix_torch, N, dim=1, sorted=False)
+        # masked_sim = cosine_sim_sub.masked_fill(adj_matrix_torch, float('-inf'))
 
-      
-        with torch.no_grad():
-            adj_matrix_torch = torch.tensor(adj_matrix[start:end_lim, :]).bool()
-        # adj_matrix_torch[adj_matrix_torch == 1.0] = float(-1000)
-        # adj_matrix_torch += cosine_sim_sub
-        # _, tgt_nodes = torch.topk(adj_matrix_torch, N, dim=1, sorted=False)
+        cosine_sim_sub = cosine_sim[start:end_lim, :].clone()
 
-        masked_sim = cosine_sim_sub.masked_fill(adj_matrix_torch, float('-inf'))
-        _, tgt_nodes = torch.topk(masked_sim, N, dim=1, sorted=False)
+        # Mask known neighbors (including self) for each source node
+        for i, src_node in enumerate(range(start, end_lim)):
+            neighbors = set(g.neighbors(src_node))
+            neighbors.add(src_node)  # also exclude self
+            cosine_sim_sub[i, list(neighbors)] = float('-inf')
+
+        _, tgt_nodes = torch.topk(cosine_sim_sub, N, dim=1, sorted=False)
 
         src_nodes = list(range(start, end_lim, 1))
         for src_node, tgts in zip(src_nodes, tgt_nodes):
